@@ -19,6 +19,7 @@ Rectangle {
     property int viewMode: 0
     property string searchText: ""
     property string dayFilter: "All"
+    property string tagFilter: ""
 
     FileView {
         id: cacheView
@@ -116,10 +117,7 @@ Rectangle {
         var d = new Date(ts)
         var now = new Date()
         if (dayFilter==="Today") return d.toDateString()===now.toDateString()
-        if (dayFilter==="Yesterday") {
-            var y = new Date(now); y.setDate(now.getDate()-1)
-            return d.toDateString()===y.toDateString()
-        }
+        if (dayFilter==="Yesterday") { var y=new Date(now); y.setDate(now.getDate()-1); return d.toDateString()===y.toDateString() }
         if (dayFilter==="7d") return now - d < 7*24*3600*1000
         if (dayFilter==="30d") return now - d < 30*24*3600*1000
         return true
@@ -206,17 +204,50 @@ Rectangle {
         Column {
             spacing: 8
             Text { text: "Prompt Library"; color: "#ccc"; font.pixelSize: 14 }
+            // Tag chips
+            Row {
+                spacing: 6
+                Repeater {
+                    model: {
+                        var tags = []
+                        for (var i=0;i<library.length;i++) {
+                            for (var j=0;j<library[i].tags.length;j++) {
+                                var t = library[i].tags[j]
+                                if (tags.indexOf(t)===-1) tags.push(t)
+                            }
+                        }
+                        return tags
+                    }
+                    delegate: Rectangle {
+                        height: 24; radius: 12; padding: { left: 8; right: 8 }
+                        color: tagFilter===modelData ? "#3a3a3a" : "#252525"
+                        Text { anchors.centerIn: parent; text: "#"+modelData; color: "white"; font.pixelSize: 11 }
+                        MouseArea { anchors.fill: parent; onClicked: tagFilter = tagFilter===modelData ? "" : modelData }
+                    }
+                }
+            }
             ScrollView {
                 anchors.fill: parent
                 Column {
                     spacing: 6
                     Repeater {
-                        model: root.library.filter(p => p.text.toLowerCase().includes(root.searchText.toLowerCase()))
+                        model: root.library.filter(p => {
+                            var txt = p.text.toLowerCase().includes(root.searchText.toLowerCase())
+                            var tag = !tagFilter || p.tags.indexOf(tagFilter)!==-1
+                            return txt && tag
+                        })
                         delegate: Rectangle {
                             width: parent.width; color: "#252525"; radius: 6; padding: 8
                             Column {
                                 spacing: 4
                                 Text { text: modelData.text.slice(0,200); color: "white"; wrapMode: Text.WordWrap; font.pixelSize: 12 }
+                                Row {
+                                    spacing: 4
+                                    Repeater {
+                                        model: modelData.tags
+                                        delegate: Text { text: "#"+modelData; color: "#8ab4f8"; font.pixelSize: 10 }
+                                    }
+                                }
                                 Text { text: new Date(modelData.created_at).toLocaleString(); color: "#888"; font.pixelSize: 10 }
                             }
                             MouseArea { anchors.fill: parent; onClicked: editorLib.text = modelData.text }
