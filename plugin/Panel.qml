@@ -16,6 +16,7 @@ Rectangle {
     property var sessions: []
     property int activeSessionIndex: 0
     property var library: []
+    property int viewMode: 0 // 0=sessions, 1=library
 
     FileView {
         id: cacheView
@@ -51,76 +52,80 @@ Rectangle {
         }
 
         Row {
-            id: tabBar
-            spacing: 6
-            Repeater {
-                model: root.sessions
-                delegate: Rectangle {
-                    width: 180
-                    height: 28
-                    radius: 6
-                    color: index === root.activeSessionIndex ? "#3a3a3a" : "#252525"
-                    Text {
-                        anchors.centerIn: parent
-                        text: modelData.title.slice(0,24)
-                        color: "white"
-                        font.pixelSize: 12
-                        elide: Text.ElideRight
-                    }
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: root.activeSessionIndex = index
-                    }
-                }
+            spacing: 8
+            Rectangle {
+                width: 100; height: 28; radius: 6
+                color: viewMode===0 ? "#3a3a3a" : "#252525"
+                Text { anchors.centerIn: parent; text: "Sessions"; color: "white"; font.pixelSize: 12 }
+                MouseArea { anchors.fill: parent; onClicked: viewMode=0 }
+            }
+            Rectangle {
+                width: 100; height: 28; radius: 6
+                color: viewMode===1 ? "#3a3a3a" : "#252525"
+                Text { anchors.centerIn: parent; text: "Library"; color: "white"; font.pixelSize: 12 }
+                MouseArea { anchors.fill: parent; onClicked: viewMode=1 }
             }
         }
 
-        Row {
-            spacing: 12
+        // Sessions view
+        Loader {
+            active: viewMode===0
             anchors.fill: parent
-            anchors.topMargin: 8
+            sourceComponent: sessionsView
+        }
 
-            Rectangle {
-                width: parent.width * 0.55
-                color: "#252525"
-                radius: 8
-                Column {
-                    anchors.fill: parent
-                    padding: 8
-                    Text { text: "Recent Prompts"; color: "#ccc"; font.pixelSize: 14 }
-                    ScrollView {
-                        anchors.fill: parent
-                        anchors.topMargin: 4
-                        Column {
-                            id: promptList
-                            spacing: 6
-                            Repeater {
-                                model: root.sessions[activeSessionIndex] ? root.sessions[activeSessionIndex].recent_prompts : []
-                                delegate: Column {
-                                    width: parent.width
-                                    spacing: 2
-                                    Text {
-                                        text: {
-                                            var ts = new Date(modelData.time_created);
-                                            return ts.toLocaleDateString();
-                                        }
-                                        color: "#888"
-                                        font.pixelSize: 10
-                                    }
-                                    Rectangle {
-                                        width: parent.width
-                                        color: "#1e1e1e"
-                                        radius: 4
-                                        padding: 6
-                                        Text {
-                                            text: modelData.prompt
-                                            wrapMode: Text.WordWrap
-                                            color: "#ddd"
-                                            font.pixelSize: 12
-                                        }
-                                        MouseArea {
-                                            anchors.fill: parent
-                                            onClicked: editor.text = modelData.prompt
+        // Library view
+        Loader {
+            active: viewMode===1
+            anchors.fill: parent
+            sourceComponent: libraryView
+        }
+    }
+
+    Component {
+        id: sessionsView
+        Column {
+            spacing: 8
+            Row {
+                spacing: 6
+                Repeater {
+                    model: root.sessions
+                    delegate: Rectangle {
+                        width: 180; height: 28; radius: 6
+                        color: index === root.activeSessionIndex ? "#3a3a3a" : "#252525"
+                        Text {
+                            anchors.centerIn: parent
+                            text: modelData.title.slice(0,24)
+                            color: "white"; font.pixelSize: 12; elide: Text.ElideRight
+                        }
+                        MouseArea { anchors.fill: parent; onClicked: root.activeSessionIndex = index }
+                    }
+                }
+            }
+            Row {
+                spacing: 12
+                anchors.fill: parent
+                anchors.topMargin: 8
+
+                Rectangle {
+                    width: parent.width * 0.55
+                    color: "#252525"; radius: 8
+                    Column {
+                        anchors.fill: parent; padding: 8
+                        Text { text: "Recent Prompts"; color: "#ccc"; font.pixelSize: 14 }
+                        ScrollView {
+                            anchors.fill: parent; anchors.topMargin: 4
+                            Column {
+                                spacing: 6
+                                Repeater {
+                                    model: root.sessions[activeSessionIndex] ? root.sessions[activeSessionIndex].recent_prompts : []
+                                    delegate: Column {
+                                        width: parent.width; spacing: 2
+                                        Text { text: new Date(modelData.time_created).toLocaleDateString(); color: "#888"; font.pixelSize: 10 }
+                                        Rectangle {
+                                            width: parent.width; color: "#1e1e1e"; radius: 4; padding: 6
+                                            Text { text: modelData.prompt; wrapMode: Text.WordWrap; color: "#ddd"; font.pixelSize: 12 }
+                                            MouseArea { anchors.fill: parent; onClicked: editor.text = modelData.prompt }
                                         }
                                     }
                                 }
@@ -128,41 +133,60 @@ Rectangle {
                         }
                     }
                 }
-            }
 
-            Rectangle {
-                width: parent.width * 0.45
-                color: "#252525"
-                radius: 8
-                Column {
-                    anchors.fill: parent
-                    padding: 8
-                    spacing: 6
-                    Text { text: "Prepare Prompt"; color: "#ccc"; font.pixelSize: 14 }
-                    TextArea {
-                        id: editor
-                        anchors.fill: parent
-                        anchors.bottomMargin: 40
-                        placeholderText: "Type prompt here..."
-                        color: "white"
-                        wrapMode: TextArea.Wrap
-                        background: Rectangle { color: "#1e1e1e"; radius: 6 }
-                    }
-                    Row {
-                        spacing: 8
-                        Button {
-                            text: "Copy"
-                            onClicked: {
-                                // Clipboard placeholder
-                                console.log("Copy:", editor.text)
-                            }
+                Rectangle {
+                    width: parent.width * 0.45
+                    color: "#252525"; radius: 8
+                    Column {
+                        anchors.fill: parent; padding: 8; spacing: 6
+                        Text { text: "Prepare Prompt"; color: "#ccc"; font.pixelSize: 14 }
+                        TextArea {
+                            id: editor
+                            anchors.fill: parent; anchors.bottomMargin: 40
+                            placeholderText: "Type prompt here..."
+                            color: "white"; wrapMode: TextArea.Wrap
+                            background: Rectangle { color: "#1e1e1e"; radius: 6 }
                         }
-                        Button {
-                            text: "Save to Library"
-                            onClicked: saveProc.start()
+                        Row {
+                            spacing: 8
+                            Button { text: "Copy"; onClicked: console.log("Copy:", editor.text) }
+                            Button { text: "Save to Library"; onClicked: saveProc.start() }
                         }
                     }
                 }
+            }
+        }
+    }
+
+    Component {
+        id: libraryView
+        Column {
+            spacing: 8
+            Text { text: "Prompt Library"; color: "#ccc"; font.pixelSize: 14 }
+            ScrollView {
+                anchors.fill: parent
+                Column {
+                    spacing: 6
+                    Repeater {
+                        model: root.library
+                        delegate: Rectangle {
+                            width: parent.width; color: "#252525"; radius: 6; padding: 8
+                            Column {
+                                spacing: 4
+                                Text { text: modelData.text.slice(0,200); color: "white"; wrapMode: Text.WordWrap; font.pixelSize: 12 }
+                                Text { text: new Date(modelData.created_at).toLocaleString(); color: "#888"; font.pixelSize: 10 }
+                            }
+                            MouseArea { anchors.fill: parent; onClicked: editorLib.text = modelData.text }
+                        }
+                    }
+                }
+            }
+            TextArea {
+                id: editorLib
+                width: parent.width; height: 120
+                placeholderText: "Quick edit / copy from library..."
+                color: "white"
+                background: Rectangle { color: "#1e1e1e"; radius: 6 }
             }
         }
     }
