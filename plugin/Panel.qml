@@ -43,8 +43,13 @@ Rectangle {
     }
 
     Process {
-        id: exportProc
+        id: exportJsonProc
         command: ["python3", "/home/remotemonkey/documents/opencode-session-tracker/export_library.py"]
+    }
+
+    Process {
+        id: exportMdProc
+        command: ["python3", "/home/remotemonkey/documents/opencode-session-tracker/export_library_md.py"]
     }
 
     Keys.onPressed: {
@@ -100,21 +105,9 @@ Rectangle {
             }
         }
 
-        Loader {
-            active: viewMode===0
-            anchors.fill: parent
-            sourceComponent: sessionsView
-        }
-        Loader {
-            active: viewMode===1
-            anchors.fill: parent
-            sourceComponent: libraryView
-        }
-        Loader {
-            active: viewMode===2
-            anchors.fill: parent
-            sourceComponent: statsView
-        }
+        Loader { active: viewMode===0; anchors.fill: parent; sourceComponent: sessionsView }
+        Loader { active: viewMode===1; anchors.fill: parent; sourceComponent: libraryView }
+        Loader { active: viewMode===2; anchors.fill: parent; sourceComponent: statsView }
     }
 
     function matchesDay(ts) {
@@ -139,11 +132,7 @@ Rectangle {
                     delegate: Rectangle {
                         width: 180; height: 28; radius: 6
                         color: index === root.activeSessionIndex ? "#3a3a3a" : "#252525"
-                        Text {
-                            anchors.centerIn: parent
-                            text: modelData.title.slice(0,24)
-                            color: "white"; font.pixelSize: 12; elide: Text.ElideRight
-                        }
+                        Text { anchors.centerIn: parent; text: modelData.title.slice(0,24); color: "white"; font.pixelSize: 12; elide: Text.ElideRight }
                         MouseArea { anchors.fill: parent; onClicked: root.activeSessionIndex = index }
                     }
                 }
@@ -152,8 +141,7 @@ Rectangle {
                 spacing: 12
                 anchors.fill: parent
                 Rectangle {
-                    width: parent.width * 0.55
-                    color: "#252525"; radius: 8
+                    width: parent.width * 0.55; color: "#252525"; radius: 8
                     Column {
                         anchors.fill: parent; padding: 8
                         Text { text: "Recent Prompts"; color: "#ccc"; font.pixelSize: 14 }
@@ -169,8 +157,7 @@ Rectangle {
                                     delegate: Column {
                                         width: parent.width; spacing: 2
                                         Text { text: new Date(modelData.time_created).toLocaleDateString(); color: "#888"; font.pixelSize: 10 }
-                                        Rectangle {
-                                            width: parent.width; color: "#1e1e1e"; radius: 4; padding: 6
+                                        Rectangle { width: parent.width; color: "#1e1e1e"; radius: 4; padding: 6
                                             Text { text: modelData.prompt; wrapMode: Text.WordWrap; color: "#ddd"; font.pixelSize: 12 }
                                             MouseArea { anchors.fill: parent; onClicked: editor.text = modelData.prompt }
                                         }
@@ -181,8 +168,7 @@ Rectangle {
                     }
                 }
                 Rectangle {
-                    width: parent.width * 0.45
-                    color: "#252525"; radius: 8
+                    width: parent.width * 0.45; color: "#252525"; radius: 8
                     Column {
                         anchors.fill: parent; padding: 8; spacing: 6
                         Text { text: "Prepare Prompt"; color: "#ccc"; font.pixelSize: 14 }
@@ -193,8 +179,7 @@ Rectangle {
                             color: "white"; wrapMode: TextArea.Wrap
                             background: Rectangle { color: "#1e1e1e"; radius: 6 }
                         }
-                        Row {
-                            spacing: 8
+                        Row { spacing: 8
                             Button { text: "Copy"; onClicked: editor.copy() }
                             Button { text: "Save to Library"; onClicked: saveProc.start() }
                         }
@@ -211,7 +196,8 @@ Rectangle {
             Row {
                 spacing: 6
                 Text { text: "Prompt Library"; color: "#ccc"; font.pixelSize: 14 }
-                Button { text: "Export"; onClicked: exportProc.start() }
+                Button { text: "Export JSON"; onClicked: exportJsonProc.start() }
+                Button { text: "Export MD"; onClicked: exportMdProc.start() }
                 Button { text: "Import"; onClicked: importProcess.start() }
             }
             Row {
@@ -252,10 +238,7 @@ Rectangle {
                                 Text { text: modelData.text.slice(0,200); color: "white"; wrapMode: Text.WordWrap; font.pixelSize: 12 }
                                 Row {
                                     spacing: 4
-                                    Repeater {
-                                        model: modelData.tags
-                                        delegate: Text { text: "#"+modelData; color: "#8ab4f8"; font.pixelSize: 10 }
-                                    }
+                                    Repeater { model: modelData.tags; delegate: Text { text: "#"+modelData; color: "#8ab4f8"; font.pixelSize: 10 } }
                                 }
                                 Text { text: new Date(modelData.created_at).toLocaleString(); color: "#888"; font.pixelSize: 10 }
                             }
