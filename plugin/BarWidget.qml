@@ -10,6 +10,12 @@ Item {
 
     property string label: "OC Sessions"
 
+    Rectangle {
+        anchors.fill: parent
+        color: mouseArea.containsMouse ? "#3a3a3a" : "transparent"
+        radius: 4
+    }
+
     Text {
         anchors.centerIn: parent
         text: label
@@ -18,10 +24,10 @@ Item {
     }
 
     MouseArea {
+        id: mouseArea
         anchors.fill: parent
         hoverEnabled: true
         onClicked: {
-            // Open panel
             Quickshell.WindowManager.openPanel("io.github.aroehrscheid-lsrmnky.opencode-sessions")
         }
     }
