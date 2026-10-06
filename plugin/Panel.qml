@@ -21,7 +21,7 @@ Rectangle {
         id: cacheView
         path: root.cachePath
         onFileChanged: {
-            try { sessions = JSON.parse(text); sessions = sessions.sessions || [] } catch(e) {}
+            try { var d = JSON.parse(text); sessions = d.sessions || [] } catch(e) {}
         }
     }
 
@@ -31,6 +31,11 @@ Rectangle {
         onFileChanged: {
             try { library = JSON.parse(text).library || [] } catch(e) { library = [] }
         }
+    }
+
+    Process {
+        id: saveProc
+        command: ["python3", "/home/remotemonkey/documents/opencode-session-tracker/save_prompt.py", editor.text]
     }
 
     Column {
@@ -87,23 +92,36 @@ Rectangle {
                         anchors.fill: parent
                         anchors.topMargin: 4
                         Column {
+                            id: promptList
                             spacing: 6
                             Repeater {
                                 model: root.sessions[activeSessionIndex] ? root.sessions[activeSessionIndex].recent_prompts : []
-                                delegate: Rectangle {
+                                delegate: Column {
                                     width: parent.width
-                                    color: "#1e1e1e"
-                                    radius: 4
-                                    padding: 6
+                                    spacing: 2
                                     Text {
-                                        text: modelData.prompt
-                                        wrapMode: Text.WordWrap
-                                        color: "#ddd"
-                                        font.pixelSize: 12
+                                        text: {
+                                            var ts = new Date(modelData.time_created);
+                                            return ts.toLocaleDateString();
+                                        }
+                                        color: "#888"
+                                        font.pixelSize: 10
                                     }
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        onClicked: editor.text = modelData.prompt
+                                    Rectangle {
+                                        width: parent.width
+                                        color: "#1e1e1e"
+                                        radius: 4
+                                        padding: 6
+                                        Text {
+                                            text: modelData.prompt
+                                            wrapMode: Text.WordWrap
+                                            color: "#ddd"
+                                            font.pixelSize: 12
+                                        }
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            onClicked: editor.text = modelData.prompt
+                                        }
                                     }
                                 }
                             }
@@ -134,14 +152,14 @@ Rectangle {
                         spacing: 8
                         Button {
                             text: "Copy"
-                            onClicked: Qt.application.clipboard ? Qt.application.clipboard.text = editor.text : {}
+                            onClicked: {
+                                // Clipboard placeholder
+                                console.log("Copy:", editor.text)
+                            }
                         }
                         Button {
                             text: "Save to Library"
-                            onClicked: {
-                                // Simple in-memory save placeholder
-                                console.log("Save prompt to library:", editor.text.slice(0,50))
-                            }
+                            onClicked: saveProc.start()
                         }
                     }
                 }
