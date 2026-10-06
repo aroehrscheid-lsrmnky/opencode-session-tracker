@@ -16,7 +16,8 @@ Rectangle {
     property var sessions: []
     property int activeSessionIndex: 0
     property var library: []
-    property int viewMode: 0 // 0=sessions, 1=library
+    property int viewMode: 0
+    property string searchText: ""
 
     FileView {
         id: cacheView
@@ -36,7 +37,7 @@ Rectangle {
 
     Process {
         id: saveProc
-        command: ["python3", "/home/remotemonkey/documents/opencode-session-tracker/save_prompt.py", editor.text]
+        command: ["python3", "/home/remotemonkey/documents/opencode-session-tracker/save_prompt.py", editor.text, searchText]
     }
 
     Column {
@@ -65,16 +66,21 @@ Rectangle {
                 Text { anchors.centerIn: parent; text: "Library"; color: "white"; font.pixelSize: 12 }
                 MouseArea { anchors.fill: parent; onClicked: viewMode=1 }
             }
+            TextField {
+                id: searchField
+                width: 200; height: 28
+                placeholderText: "Search..."
+                onTextChanged: root.searchText = text
+                background: Rectangle { color: "#252525"; radius: 6 }
+                color: "white"
+            }
         }
 
-        // Sessions view
         Loader {
             active: viewMode===0
             anchors.fill: parent
             sourceComponent: sessionsView
         }
-
-        // Library view
         Loader {
             active: viewMode===1
             anchors.fill: parent
@@ -106,7 +112,6 @@ Rectangle {
                 spacing: 12
                 anchors.fill: parent
                 anchors.topMargin: 8
-
                 Rectangle {
                     width: parent.width * 0.55
                     color: "#252525"; radius: 8
@@ -118,7 +123,7 @@ Rectangle {
                             Column {
                                 spacing: 6
                                 Repeater {
-                                    model: root.sessions[activeSessionIndex] ? root.sessions[activeSessionIndex].recent_prompts : []
+                                    model: root.sessions[activeSessionIndex] ? root.sessions[activeSessionIndex].recent_prompts.filter(p => p.prompt.toLowerCase().includes(root.searchText.toLowerCase())) : []
                                     delegate: Column {
                                         width: parent.width; spacing: 2
                                         Text { text: new Date(modelData.time_created).toLocaleDateString(); color: "#888"; font.pixelSize: 10 }
@@ -133,7 +138,6 @@ Rectangle {
                         }
                     }
                 }
-
                 Rectangle {
                     width: parent.width * 0.45
                     color: "#252525"; radius: 8
@@ -168,7 +172,7 @@ Rectangle {
                 Column {
                     spacing: 6
                     Repeater {
-                        model: root.library
+                        model: root.library.filter(p => p.text.toLowerCase().includes(root.searchText.toLowerCase()))
                         delegate: Rectangle {
                             width: parent.width; color: "#252525"; radius: 6; padding: 8
                             Column {
