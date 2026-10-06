@@ -38,3 +38,10 @@ omarchy-shell shell summon "io.github.yourname.opencode-sessions" '{}'
 systemctl --user status opencode-sessions-exporter.timer
 qs log -p "$OMARCHY_PATH/shell" --tail 100
 ```
+
+## Clipboard verification
+1. Open panel, select a prompt, press Copy.
+2. Open any text editor and paste Ctrl+V.
+3. Ensure text matches prompt.
+
+If copy fails, check Quickshell clipboard permissions.
