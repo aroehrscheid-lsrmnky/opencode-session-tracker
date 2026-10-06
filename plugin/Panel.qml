@@ -42,6 +42,11 @@ Rectangle {
         command: ["python3", "/home/remotemonkey/documents/opencode-session-tracker/save_prompt.py", editor.text]
     }
 
+    Process {
+        id: exportProc
+        command: ["python3", "/home/remotemonkey/documents/opencode-session-tracker/export_library.py"]
+    }
+
     Keys.onPressed: {
         if (event.key === Qt.Key_F && event.modifiers & Qt.ControlModifier) { searchField.forceActiveFocus(); event.accepted = true }
         if (event.key === Qt.Key_W && event.modifiers & Qt.ControlModifier) { editor.text = ""; event.accepted = true }
@@ -203,8 +208,12 @@ Rectangle {
         id: libraryView
         Column {
             spacing: 8
-            Text { text: "Prompt Library"; color: "#ccc"; font.pixelSize: 14 }
-            // Tag chips
+            Row {
+                spacing: 6
+                Text { text: "Prompt Library"; color: "#ccc"; font.pixelSize: 14 }
+                Button { text: "Export"; onClicked: exportProc.start() }
+                Button { text: "Import"; onClicked: importProcess.start() }
+            }
             Row {
                 spacing: 6
                 Repeater {
@@ -274,5 +283,10 @@ Rectangle {
             Text { text: "Library items: " + library.length; color: "white"; font.pixelSize: 13 }
             Text { text: "Total prompts in last 30d: " + sessions.reduce((a,s)=>a + s.recent_prompts.filter(p=> (Date.now()-p.time_created)<30*24*3600*1000).length,0); color: "white"; font.pixelSize: 13 }
         }
+    }
+
+    Process {
+        id: importProcess
+        command: ["python3", "-c", "import tkinter.filedialog as fd; print(fd.askopenfilename())"]
     }
 }

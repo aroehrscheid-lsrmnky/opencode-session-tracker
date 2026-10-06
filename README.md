@@ -19,3 +19,8 @@ omarchy plugin add https://github.com/yourname/opencode-session-tracker.git --en
 - ARCHITECTURE.md
 - DESIGN.md
 - SOFTWARE_STACK.md
+
+## Progress
+Current commit: $(git -C /home/remotemonkey/documents/opencode-session-tracker rev-parse --short HEAD)
+Last update: $(date -u +"%Y-%m-%d %H:%M UTC")
+57a82e3 Add install.sh with install and update functions
