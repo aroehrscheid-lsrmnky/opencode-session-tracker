@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"io.github.yourname.opencode-sessions","name":"OpenCode Session Tracker","version":"0.1.0","author":"Your Name","license":"MIT","description":"Track OpenCode sessions, browse recent prompts, and maintain a prompt library for Omarchy.","kinds":["bar-widget"],"entryPoints":{"barWidget":"BarWidget.qml","panel":"Panel.qml"}}
