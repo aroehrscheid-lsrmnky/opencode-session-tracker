@@ -11,7 +11,7 @@ A Quickshell/Omarchy bar-widget + panel to track OpenCode sessions, browse promp
 
 ## Install
 ```bash
-omarchy plugin add https://github.com/yourname/opencode-session-tracker.git --enable
+omarchy plugin add https://github.com/aroehrscheid-lsrmnky/opencode-session-tracker.git --enable
 ```
 
 ## Docs
