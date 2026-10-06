@@ -18,6 +18,7 @@ Rectangle {
     property var library: []
     property int viewMode: 0
     property string searchText: ""
+    property string dayFilter: "All"
 
     FileView {
         id: cacheView
@@ -37,7 +38,14 @@ Rectangle {
 
     Process {
         id: saveProc
-        command: ["python3", "/home/remotemonkey/documents/opencode-session-tracker/save_prompt.py", editor.text, searchText]
+        command: ["python3", "/home/remotemonkey/documents/opencode-session-tracker/save_prompt.py", editor.text]
+    }
+
+    Keys.onPressed: {
+        if (event.key === Qt.Key_F && event.modifiers & Qt.ControlModifier) { searchField.forceActiveFocus(); event.accepted = true }
+        if (event.key === Qt.Key_W && event.modifiers & Qt.ControlModifier) { editor.text = ""; event.accepted = true }
+        if (event.key === Qt.Key_S && event.modifiers & Qt.ControlModifier) { saveProc.start(); event.accepted = true }
+        if (event.key === Qt.Key_Escape) { Quickshell.WindowManager.closePanel("io.github.yourname.opencode-sessions") }
     }
 
     Column {
@@ -54,17 +62,14 @@ Rectangle {
 
         Row {
             spacing: 8
-            Rectangle {
-                width: 100; height: 28; radius: 6
-                color: viewMode===0 ? "#3a3a3a" : "#252525"
-                Text { anchors.centerIn: parent; text: "Sessions"; color: "white"; font.pixelSize: 12 }
-                MouseArea { anchors.fill: parent; onClicked: viewMode=0 }
-            }
-            Rectangle {
-                width: 100; height: 28; radius: 6
-                color: viewMode===1 ? "#3a3a3a" : "#252525"
-                Text { anchors.centerIn: parent; text: "Library"; color: "white"; font.pixelSize: 12 }
-                MouseArea { anchors.fill: parent; onClicked: viewMode=1 }
+            Repeater {
+                model: ["Sessions","Library","Stats"]
+                delegate: Rectangle {
+                    width: 100; height: 28; radius: 6
+                    color: viewMode===index ? "#3a3a3a" : "#252525"
+                    Text { anchors.centerIn: parent; text: modelData; color: "white"; font.pixelSize: 12 }
+                    MouseArea { anchors.fill: parent; onClicked: viewMode = index }
+                }
             }
             TextField {
                 id: searchField
@@ -73,6 +78,19 @@ Rectangle {
                 onTextChanged: root.searchText = text
                 background: Rectangle { color: "#252525"; radius: 6 }
                 color: "white"
+            }
+        }
+
+        Row {
+            spacing: 6
+            Repeater {
+                model: ["All","Today","Yesterday","7d","30d"]
+                delegate: Rectangle {
+                    height: 24; radius: 12; padding: { left: 8; right: 8 }
+                    color: dayFilter===modelData ? "#3a3a3a" : "#252525"
+                    Text { anchors.centerIn: parent; text: modelData; color: "white"; font.pixelSize: 11 }
+                    MouseArea { anchors.fill: parent; onClicked: dayFilter = modelData }
+                }
             }
         }
 
@@ -86,6 +104,25 @@ Rectangle {
             anchors.fill: parent
             sourceComponent: libraryView
         }
+        Loader {
+            active: viewMode===2
+            anchors.fill: parent
+            sourceComponent: statsView
+        }
+    }
+
+    function matchesDay(ts) {
+        if (dayFilter==="All") return true
+        var d = new Date(ts)
+        var now = new Date()
+        if (dayFilter==="Today") return d.toDateString()===now.toDateString()
+        if (dayFilter==="Yesterday") {
+            var y = new Date(now); y.setDate(now.getDate()-1)
+            return d.toDateString()===y.toDateString()
+        }
+        if (dayFilter==="7d") return now - d < 7*24*3600*1000
+        if (dayFilter==="30d") return now - d < 30*24*3600*1000
+        return true
     }
 
     Component {
@@ -111,7 +148,6 @@ Rectangle {
             Row {
                 spacing: 12
                 anchors.fill: parent
-                anchors.topMargin: 8
                 Rectangle {
                     width: parent.width * 0.55
                     color: "#252525"; radius: 8
@@ -123,7 +159,10 @@ Rectangle {
                             Column {
                                 spacing: 6
                                 Repeater {
-                                    model: root.sessions[activeSessionIndex] ? root.sessions[activeSessionIndex].recent_prompts.filter(p => p.prompt.toLowerCase().includes(root.searchText.toLowerCase())) : []
+                                    model: root.sessions[activeSessionIndex] ? root.sessions[activeSessionIndex].recent_prompts.filter(p => {
+                                        var m = p.prompt.toLowerCase().includes(root.searchText.toLowerCase())
+                                        return m && matchesDay(p.time_created)
+                                    }) : []
                                     delegate: Column {
                                         width: parent.width; spacing: 2
                                         Text { text: new Date(modelData.time_created).toLocaleDateString(); color: "#888"; font.pixelSize: 10 }
@@ -153,7 +192,7 @@ Rectangle {
                         }
                         Row {
                             spacing: 8
-                            Button { text: "Copy"; onClicked: console.log("Copy:", editor.text) }
+                            Button { text: "Copy"; onClicked: editor.copy() }
                             Button { text: "Save to Library"; onClicked: saveProc.start() }
                         }
                     }
@@ -192,6 +231,17 @@ Rectangle {
                 color: "white"
                 background: Rectangle { color: "#1e1e1e"; radius: 6 }
             }
+        }
+    }
+
+    Component {
+        id: statsView
+        Column {
+            spacing: 8
+            Text { text: "Stats"; color: "#ccc"; font.pixelSize: 14 }
+            Text { text: "Sessions: " + sessions.length; color: "white"; font.pixelSize: 13 }
+            Text { text: "Library items: " + library.length; color: "white"; font.pixelSize: 13 }
+            Text { text: "Total prompts in last 30d: " + sessions.reduce((a,s)=>a + s.recent_prompts.filter(p=> (Date.now()-p.time_created)<30*24*3600*1000).length,0); color: "white"; font.pixelSize: 13 }
         }
     }
 }
