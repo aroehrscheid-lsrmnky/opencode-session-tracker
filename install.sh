@@ -2,26 +2,34 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PLUGIN_ID="io.github.yourname.opencode-sessions"
-PLUGIN_DIR="$HOME/.config/omarchy/plugins/$PLUGIN_ID"
+PLUGIN_DIR_SRC="$REPO_DIR/plugin"
+MANIFEST="$PLUGIN_DIR_SRC/manifest.json"
+
+if [ ! -f "$MANIFEST" ]; then
+  echo "manifest.json not found in plugin/"
+  exit 1
+fi
+
+PLUGIN_ID=$(python3 -c "import json; print(json.load(open('$MANIFEST'))['id'])")
+PLUGIN_INSTALL_DIR="$HOME/.config/omarchy/plugins/$PLUGIN_ID"
 
 install_plugin() {
   echo "Installing $PLUGIN_ID..."
-  mkdir -p "$PLUGIN_DIR"
-  cp -r "$REPO_DIR/plugin/." "$PLUGIN_DIR/"
-  echo "Plugin installed to $PLUGIN_DIR"
-  omarchy plugin validate "$PLUGIN_DIR" || true
+  mkdir -p "$PLUGIN_INSTALL_DIR"
+  cp -r "$PLUGIN_DIR_SRC"/. "$PLUGIN_INSTALL_DIR"/
+  echo "Plugin installed to $PLUGIN_INSTALL_DIR"
+  omarchy plugin validate "$PLUGIN_INSTALL_DIR" || true
   omarchy-shell shell rescanPlugins
   echo "Done. Open with: omarchy-shell shell summon \"$PLUGIN_ID\" '{}'"
 }
 
 update_plugin() {
-  echo "Updating $PLUGIN_ID from repo..."
-  if [ ! -d "$PLUGIN_DIR" ]; then
+  if [ ! -d "$PLUGIN_INSTALL_DIR" ]; then
     echo "Plugin not installed. Run install first."
     exit 1
   fi
-  cp -r "$REPO_DIR/plugin/." "$PLUGIN_DIR/"
+  echo "Updating $PLUGIN_ID from repo..."
+  cp -r "$PLUGIN_DIR_SRC"/. "$PLUGIN_INSTALL_DIR"/
   echo "Plugin updated."
   omarchy-shell shell rescanPlugins
 }
