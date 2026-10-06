@@ -2,7 +2,7 @@
 
 ## Prerequisites
 - Omarchy installed
-- Plugin files in ~/.config/omarchy/plugins/io.github.yourname.opencode-sessions/
+- Plugin files in ~/.config/omarchy/plugins/io.github.aroehrscheid-lsrmnky.opencode-sessions/
 - Exporter timer active
 
 ## Quick smoke test
@@ -13,15 +13,15 @@ cat ~/.cache/opencode-sessions/sessions.json | jq '.sessions | length'
 
 ## Install plugin
 ```bash
-mkdir -p ~/.config/omarchy/plugins/io.github.yourname.opencode-sessions
-cp -r ~/documents/opencode-session-tracker/plugin/* ~/.config/omarchy/plugins/io.github.yourname.opencode-sessions/
-omarchy plugin validate ~/.config/omarchy/plugins/io.github.yourname.opencode-sessions
+mkdir -p ~/.config/omarchy/plugins/io.github.aroehrscheid-lsrmnky.opencode-sessions
+cp -r ~/documents/opencode-session-tracker/plugin/* ~/.config/omarchy/plugins/io.github.aroehrscheid-lsrmnky.opencode-sessions/
+omarchy plugin validate ~/.config/omarchy/plugins/io.github.aroehrscheid-lsrmnky.opencode-sessions
 omarchy-shell shell rescanPlugins
 ```
 
 ## Open panel
 ```bash
-omarchy-shell shell summon "io.github.yourname.opencode-sessions" '{}'
+omarchy-shell shell summon "io.github.aroehrscheid-lsrmnky.opencode-sessions" '{}'
 ```
 
 ## Test flows

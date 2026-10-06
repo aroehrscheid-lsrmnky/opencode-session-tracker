@@ -12,7 +12,7 @@ Rectangle {
     radius: 12
 
     property string cachePath: "/home/remotemonkey/.cache/opencode-sessions/sessions.json"
-    property string libraryPath: "/home/remotemonkey/.config/omarchy/plugins/io.github.yourname.opencode-sessions/prompts.json"
+    property string libraryPath: "/home/remotemonkey/.config/omarchy/plugins/io.github.aroehrscheid-lsrmnky.opencode-sessions/prompts.json"
     property var sessions: []
     property int activeSessionIndex: 0
     property var library: []
@@ -56,7 +56,7 @@ Rectangle {
         if (event.key === Qt.Key_F && event.modifiers & Qt.ControlModifier) { searchField.forceActiveFocus(); event.accepted = true }
         if (event.key === Qt.Key_W && event.modifiers & Qt.ControlModifier) { editor.text = ""; event.accepted = true }
         if (event.key === Qt.Key_S && event.modifiers & Qt.ControlModifier) { saveProc.start(); event.accepted = true }
-        if (event.key === Qt.Key_Escape) { Quickshell.WindowManager.closePanel("io.github.yourname.opencode-sessions") }
+        if (event.key === Qt.Key_Escape) { Quickshell.WindowManager.closePanel("io.github.aroehrscheid-lsrmnky.opencode-sessions") }
     }
 
     Column {

@@ -22,7 +22,7 @@ Item {
         hoverEnabled: true
         onClicked: {
             // Open panel
-            Quickshell.WindowManager.openPanel("io.github.yourname.opencode-sessions")
+            Quickshell.WindowManager.openPanel("io.github.aroehrscheid-lsrmnky.opencode-sessions")
         }
     }
 }
