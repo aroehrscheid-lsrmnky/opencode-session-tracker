@@ -13,10 +13,23 @@ fi
 PLUGIN_ID=$(python3 -c "import json; print(json.load(open('$MANIFEST'))['id'])")
 PLUGIN_INSTALL_DIR="$HOME/.config/omarchy/plugins/$PLUGIN_ID"
 
+copy_plugin() {
+  # Never clobber the user's prompt library with the repo's empty seed copy.
+  local backup=""
+  if [ -f "$PLUGIN_INSTALL_DIR/prompts.json" ]; then
+    backup="$(mktemp)"
+    cp "$PLUGIN_INSTALL_DIR/prompts.json" "$backup"
+  fi
+  cp -r "$PLUGIN_DIR_SRC"/. "$PLUGIN_INSTALL_DIR"/
+  if [ -n "$backup" ]; then
+    mv "$backup" "$PLUGIN_INSTALL_DIR/prompts.json"
+  fi
+}
+
 install_plugin() {
   echo "Installing $PLUGIN_ID..."
   mkdir -p "$PLUGIN_INSTALL_DIR"
-  cp -r "$PLUGIN_DIR_SRC"/. "$PLUGIN_INSTALL_DIR"/
+  copy_plugin
   echo "Plugin installed to $PLUGIN_INSTALL_DIR"
   omarchy plugin validate "$PLUGIN_INSTALL_DIR" || true
   omarchy-shell shell rescanPlugins
@@ -29,7 +42,7 @@ update_plugin() {
     exit 1
   fi
   echo "Updating $PLUGIN_ID from repo..."
-  cp -r "$PLUGIN_DIR_SRC"/. "$PLUGIN_INSTALL_DIR"/
+  copy_plugin
   echo "Plugin updated."
   omarchy-shell shell rescanPlugins
 }
