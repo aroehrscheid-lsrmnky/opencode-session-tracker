@@ -12,17 +12,24 @@ Rectangle {
     radius: 12
 
     property string cachePath: "/home/remotemonkey/.cache/opencode-sessions/sessions.json"
+    property string libraryPath: "/home/remotemonkey/.config/omarchy/plugins/io.github.yourname.opencode-sessions/prompts.json"
     property var sessions: []
     property int activeSessionIndex: 0
+    property var library: []
 
-    // Load cache
     FileView {
+        id: cacheView
         path: root.cachePath
         onFileChanged: {
-            try {
-                sessions = JSON.parse(text)
-                sessions = sessions.sessions || []
-            } catch(e) {}
+            try { sessions = JSON.parse(text); sessions = sessions.sessions || [] } catch(e) {}
+        }
+    }
+
+    FileView {
+        id: libView
+        path: root.libraryPath
+        onFileChanged: {
+            try { library = JSON.parse(text).library || [] } catch(e) { library = [] }
         }
     }
 
@@ -38,7 +45,6 @@ Rectangle {
             font.bold: true
         }
 
-        // Tab bar
         Row {
             id: tabBar
             spacing: 6
@@ -69,7 +75,6 @@ Rectangle {
             anchors.fill: parent
             anchors.topMargin: 8
 
-            // Recent prompts list
             Rectangle {
                 width: parent.width * 0.55
                 color: "#252525"
@@ -96,6 +101,10 @@ Rectangle {
                                         color: "#ddd"
                                         font.pixelSize: 12
                                     }
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        onClicked: editor.text = modelData.prompt
+                                    }
                                 }
                             }
                         }
@@ -103,7 +112,6 @@ Rectangle {
                 }
             }
 
-            // Prompt editor
             Rectangle {
                 width: parent.width * 0.45
                 color: "#252525"
@@ -116,10 +124,25 @@ Rectangle {
                     TextArea {
                         id: editor
                         anchors.fill: parent
+                        anchors.bottomMargin: 40
                         placeholderText: "Type prompt here..."
                         color: "white"
                         wrapMode: TextArea.Wrap
                         background: Rectangle { color: "#1e1e1e"; radius: 6 }
+                    }
+                    Row {
+                        spacing: 8
+                        Button {
+                            text: "Copy"
+                            onClicked: Qt.application.clipboard ? Qt.application.clipboard.text = editor.text : {}
+                        }
+                        Button {
+                            text: "Save to Library"
+                            onClicked: {
+                                // Simple in-memory save placeholder
+                                console.log("Save prompt to library:", editor.text.slice(0,50))
+                            }
+                        }
                     }
                 }
             }
