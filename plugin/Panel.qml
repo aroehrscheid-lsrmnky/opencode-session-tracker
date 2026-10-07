@@ -56,6 +56,10 @@ Item {
             property string draftText: ""
             property string libDraft: ""
             property string statusMsg: ""
+            property int answerFontSize: 13
+            property string answerFontFamily: "JetBrains Mono"
+            property string selectedPromptAnswer: ""
+            property int selectedPromptIndex: -1
 
             onSessionsChanged: {
                 if (activeSessionIndex >= sessions.length)
@@ -73,6 +77,29 @@ Item {
                     return
                 }
                 saveProc.running = true
+            }
+
+            function showAnswer(promptIndex, answerText) {
+                selectedPromptIndex = promptIndex
+                selectedPromptAnswer = answerText || "⏳ No answer yet…"
+                viewMode = 1
+            }
+
+            function showEditor() {
+                viewMode = 0
+                selectedPromptIndex = -1
+                selectedPromptAnswer = ""
+            }
+
+            function reloadCurrentAnswer() {
+                if (selectedPromptIndex >= 0) {
+                    var s = sessions[activeSessionIndex]
+                    if (s && s.recent_prompts && s.recent_prompts[selectedPromptIndex]) {
+                        var p = s.recent_prompts[selectedPromptIndex]
+                        selectedPromptAnswer = p.answer || "⏳ No answer yet…"
+                        setStatus("Answer refreshed")
+                    }
+                }
             }
 
             function matchesDay(ts) {
@@ -215,9 +242,11 @@ Item {
             Shortcut { sequence: "Ctrl+F"; onActivated: searchField.forceActiveFocus() }
             Shortcut { sequence: "Ctrl+W"; onActivated: card.draftText = "" }
             Shortcut { sequence: "Ctrl+S"; onActivated: card.savePrompt() }
+            Shortcut { sequence: "Ctrl+E"; onActivated: card.showEditor() }
             Shortcut { sequence: "Ctrl+1"; onActivated: card.viewMode = 0 }
             Shortcut { sequence: "Ctrl+2"; onActivated: card.viewMode = 1 }
             Shortcut { sequence: "Ctrl+3"; onActivated: card.viewMode = 2 }
+            Shortcut { sequence: "Ctrl+4"; onActivated: card.viewMode = 3 }
 
             Column {
                 id: headerCol
@@ -238,7 +267,7 @@ Item {
                     spacing: 8
 
                     Repeater {
-                        model: ["Sessions", "Library", "Stats"]
+                        model: ["Sessions", "Answer", "Library", "Stats"]
                         delegate: Rectangle {
                             width: 100
                             height: 28
@@ -310,11 +339,16 @@ Item {
                 Loader {
                     anchors.fill: parent
                     active: card.viewMode === 1
-                    sourceComponent: libraryView
+                    sourceComponent: answerView
                 }
                 Loader {
                     anchors.fill: parent
                     active: card.viewMode === 2
+                    sourceComponent: libraryView
+                }
+                Loader {
+                    anchors.fill: parent
+                    active: card.viewMode === 3
                     sourceComponent: statsView
                 }
             }
@@ -441,7 +475,11 @@ Item {
                                                     hoverEnabled: true
                                                     onClicked: {
                                                         card.draftText = modelData.prompt
-                                                        card.setStatus("Prompt loaded into editor")
+                                                        if (modelData.answer) {
+                                                            card.showAnswer(index, modelData.answer)
+                                                        } else {
+                                                            card.setStatus("No answer available for this prompt")
+                                                        }
                                                     }
                                                 }
                                             }
@@ -461,87 +499,266 @@ Item {
                             }
                         }
 
-                        Rectangle {
-                            id: editorPane
-                            anchors.right: parent.right
-                            anchors.top: parent.top
-                            anchors.bottom: parent.bottom
-                            width: (parent.width - 12) * 0.45
-                            color: "#252525"
-                            radius: 8
-
-                            Text {
-                                id: editorHeader
-                                anchors.top: parent.top
-                                anchors.left: parent.left
-                                anchors.margins: 10
-                                text: "Prepare Prompt"
-                                color: "#ccc"
-                                font.pixelSize: 14
+                        Loader {
+                                id: rightPaneLoader
+                                anchors.fill: parent
+                                sourceComponent: card.viewMode === 0 ? editorMode : answerMode
                             }
 
-                            TextArea {
-                                id: editor
-                                anchors.top: editorHeader.bottom
-                                anchors.topMargin: 8
-                                anchors.left: parent.left
-                                anchors.leftMargin: 10
-                                anchors.right: parent.right
-                                anchors.rightMargin: 10
-                                anchors.bottom: buttonRow.top
-                                anchors.bottomMargin: 8
-                                text: card.draftText
-                                onTextChanged: {
-                                    if (text !== card.draftText) card.draftText = text
-                                }
-                                placeholderText: "Type a prompt, or click one on the left"
-                                placeholderTextColor: "#888"
-                                color: "white"
-                                wrapMode: TextArea.Wrap
-                                selectByMouse: true
-                                background: Rectangle { color: "#1e1e1e"; radius: 6 }
-                            }
+                            Component {
+                                id: editorMode
 
-                            // Fallback placeholder (native one sometimes doesn't render)
-                            Text {
-                                anchors.top: editor.top
-                                anchors.topMargin: 8
-                                anchors.left: editor.left
-                                anchors.leftMargin: 10
-                                visible: editor.text === ""
-                                text: "Type a prompt, or click one on the left"
-                                color: "#888"
-                                font.pixelSize: 12
-                                z: editor.z + 1
-                            }
+                                Rectangle {
+                                    anchors.fill: parent
+                                    color: "#252525"
+                                    radius: 8
 
-                            Row {
-                                id: buttonRow
-                                anchors.left: parent.left
-                                anchors.leftMargin: 10
-                                anchors.right: parent.right
-                                anchors.rightMargin: 10
-                                anchors.bottom: parent.bottom
-                                anchors.bottomMargin: 10
-                                spacing: 8
+                                    Text {
+                                        id: editorHeader
+                                        anchors.top: parent.top
+                                        anchors.left: parent.left
+                                        anchors.margins: 10
+                                        text: "Prepare Prompt"
+                                        color: "#ccc"
+                                        font.pixelSize: 14
+                                    }
 
-                                Button {
-                                    text: "Copy"
-                                    bordered: true
-                                    onClicked: {
-                                        Quickshell.clipboardText = card.draftText
-                                        card.setStatus("Copied to clipboard")
+                                    TextArea {
+                                        id: editor
+                                        anchors.top: editorHeader.bottom
+                                        anchors.topMargin: 8
+                                        anchors.left: parent.left
+                                        anchors.leftMargin: 10
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: 10
+                                        anchors.bottom: buttonRow.top
+                                        anchors.bottomMargin: 8
+                                        text: card.draftText
+                                        onTextChanged: {
+                                            if (text !== card.draftText) card.draftText = text
+                                        }
+                                        placeholderText: "Type a prompt, or click one on the left"
+                                        placeholderTextColor: "#888"
+                                        color: "white"
+                                        wrapMode: TextArea.Wrap
+                                        selectByMouse: true
+                                        background: Rectangle { color: "#1e1e1e"; radius: 6 }
+                                    }
+
+                                    // Fallback placeholder (native one sometimes doesn't render)
+                                    Text {
+                                        anchors.top: editor.top
+                                        anchors.topMargin: 8
+                                        anchors.left: editor.left
+                                        anchors.leftMargin: 10
+                                        visible: editor.text === ""
+                                        text: "Type a prompt, or click one on the left"
+                                        color: "#888"
+                                        font.pixelSize: 12
+                                        z: editor.z + 1
+                                    }
+
+                                    Row {
+                                        id: buttonRow
+                                        anchors.left: parent.left
+                                        anchors.leftMargin: 10
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: 10
+                                        anchors.bottom: parent.bottom
+                                        anchors.bottomMargin: 10
+                                        spacing: 8
+
+                                        Button {
+                                            text: "Copy"
+                                            bordered: true
+                                            onClicked: {
+                                                Quickshell.clipboardText = card.draftText
+                                                card.setStatus("Copied to clipboard")
+                                            }
+                                        }
+                                        Button {
+                                            text: "Save to Library"
+                                            bordered: true
+                                            onClicked: card.savePrompt()
+                                        }
+                                        Button {
+                                            text: "Clear"
+                                            bordered: true
+                                            onClicked: card.draftText = ""
+                                        }
                                     }
                                 }
+                            }
+
+                            Component {
+                                id: answerMode
+
+                                Rectangle {
+                                    anchors.fill: parent
+                                    color: "#252525"
+                                    radius: 8
+
+                                    Column {
+                                        anchors.fill: parent
+                                        spacing: 8
+
+                                        Row {
+                                            anchors.left: parent.left
+                                            anchors.leftMargin: 10
+                                            anchors.right: parent.right
+                                            anchors.rightMargin: 10
+                                            anchors.top: parent.top
+                                            anchors.topMargin: 10
+                                            height: 28
+                                            spacing: 8
+
+                                            Text {
+                                                text: "Answer"
+                                                color: "#ccc"
+                                                font.pixelSize: 14
+                                            }
+
+                                            Rectangle {
+                                                color: "transparent"
+                                            }
+
+                                            ComboBox {
+                                                id: fontFamilyCombo
+                                                width: 180
+                                                height: 28
+                                                model: ["JetBrains Mono", "Fira Code", "Source Code Pro", "Cascadia Code", "IBM Plex Mono", "Monospace"]
+                                                currentText: card.answerFontFamily
+                                                onCurrentTextChanged: { card.answerFontFamily = currentText; }
+                                                background: Rectangle { color: "#1e1e1e"; radius: 4; border.color: "#3a3a3a"; border.width: 1 }
+                                            }
+
+                                            Slider {
+                                                id: fontSizeSlider
+                                                width: 120
+                                                height: 28
+                                                from: 10; to: 24; value: card.answerFontSize; stepSize: 1
+                                                onValueChanged: { card.answerFontSize = Math.round(value); }
+                                                background: Rectangle { color: "#1e1e1e"; radius: 4; border.color: "#3a3a3a"; border.width: 1 }
+                                            }
+
+                                            Button {
+                                                text: "Refresh"
+                                                bordered: true
+                                                enabled: selectedPromptAnswer === "⏳ No answer yet…"
+                                                onClicked: card.reloadCurrentAnswer()
+                                            }
+                                            Button {
+                                                text: "Back to Editor"
+                                                bordered: true
+                                                onClicked: card.showEditor()
+                                            }
+                                        }
+
+                                        ScrollView {
+                                            anchors.fill: parent
+                                            anchors.topMargin: 40
+                                            anchors.leftMargin: 10
+                                            anchors.rightMargin: 10
+                                            anchors.bottomMargin: 10
+                                            clip: true
+
+                                            Text {
+                                                id: answerText
+                                                width: parent.width
+                                                text: card.selectedPromptAnswer
+                                                textFormat: Text.MarkdownText
+                                                wrapMode: Text.WordWrap
+                                                color: "#ddd"
+                                                font.family: card.answerFontFamily
+                                                font.pixelSize: card.answerFontSize
+                                            }
+                                        }
+                                    }
+}
+            }
+        }
+    }
+}
+
+            Component {
+                id: answerView
+
+                Item {
+                    anchors.fill: parent
+
+                    // Full-width answer view for Ctrl+2 direct access
+                    Rectangle {
+                        anchors.fill: parent
+                        color: "#252525"
+                        radius: 8
+
+                        Column {
+                            anchors.fill: parent
+                            spacing: 8
+
+                            Row {
+                                anchors.left: parent.left
+                                anchors.leftMargin: 10
+                                anchors.right: parent.right
+                                anchors.rightMargin: 10
+                                anchors.top: parent.top
+                                anchors.topMargin: 10
+                                height: 28
+                                spacing: 8
+
+                                Text {
+                                    text: "Answer View"
+                                    color: "#ccc"
+                                    font.pixelSize: 14
+                                }
+
+                                Rectangle {
+                                                    color: "transparent"
+                                                }
+
+                                ComboBox {
+                                    model: ["JetBrains Mono", "Fira Code", "Source Code Pro", "Cascadia Code", "IBM Plex Mono", "Monospace"]
+                                    currentText: card.answerFontFamily
+                                    onCurrentTextChanged: { card.answerFontFamily = currentText; }
+                                    background: Rectangle { color: "#1e1e1e"; radius: 4; border.color: "#3a3a3a"; border.width: 1 }
+                                }
+
+                                Slider {
+                                    width: 120
+                                    from: 10; to: 24; value: card.answerFontSize; stepSize: 1
+                                    onValueChanged: { card.answerFontSize = Math.round(value); }
+                                    background: Rectangle { color: "#1e1e1e"; radius: 4; border.color: "#3a3a3a"; border.width: 1 }
+                                }
+
                                 Button {
-                                    text: "Save to Library"
+                                    text: "Refresh"
                                     bordered: true
-                                    onClicked: card.savePrompt()
+                                    enabled: selectedPromptAnswer === "⏳ No answer yet…"
+                                    onClicked: card.reloadCurrentAnswer()
                                 }
                                 Button {
-                                    text: "Clear"
+                                    text: "Back to Sessions"
                                     bordered: true
-                                    onClicked: card.draftText = ""
+                                    onClicked: card.showEditor()
+                                }
+                            }
+
+                            ScrollView {
+                                anchors.fill: parent
+                                anchors.topMargin: 40
+                                anchors.leftMargin: 10
+                                anchors.rightMargin: 10
+                                anchors.bottomMargin: 10
+                                clip: true
+
+                                Text {
+                                    width: parent.width
+                                    text: card.selectedPromptAnswer
+                                    textFormat: Text.MarkdownText
+                                    wrapMode: Text.WordWrap
+                                    color: "#ddd"
+                                    font.family: card.answerFontFamily
+                                    font.pixelSize: card.answerFontSize
                                 }
                             }
                         }
