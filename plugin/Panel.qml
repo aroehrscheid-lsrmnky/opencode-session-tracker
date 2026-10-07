@@ -121,7 +121,7 @@ Item {
                 var s = sessions[activeSessionIndex]
                 if (!s) return []
                 var q = searchText.toLowerCase()
-                return s.recent_prompts.map((p, i) => ({...p, originalIndex: i})).filter(p => {
+                return s.recent_prompts.map((p, i) => Object.assign({}, p, {originalIndex: i})).filter(p => {
                     return String(p.prompt).toLowerCase().includes(q) && matchesDay(p.time_created)
                 })
             }
@@ -501,7 +501,11 @@ Item {
 
                         Loader {
                                 id: rightPaneLoader
-                                anchors.fill: parent
+                                anchors.left: promptsPane.right
+                                anchors.leftMargin: 12
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
                                 sourceComponent: card.viewMode === 0 ? editorMode : answerMode
                             }
 
@@ -598,83 +602,82 @@ Item {
                                     color: "#252525"
                                     radius: 8
 
-                                    Column {
-                                        anchors.fill: parent
+                                    Row {
+                                        id: answerModeHeader
+                                        anchors.left: parent.left
+                                        anchors.leftMargin: 10
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: 10
+                                        anchors.top: parent.top
+                                        anchors.topMargin: 10
+                                        height: 28
                                         spacing: 8
 
-                                        Row {
-                                            anchors.left: parent.left
-                                            anchors.leftMargin: 10
-                                            anchors.right: parent.right
-                                            anchors.rightMargin: 10
-                                            anchors.top: parent.top
-                                            anchors.topMargin: 10
-                                            height: 28
-                                            spacing: 8
-
-                                            Text {
-                                                text: "Answer"
-                                                color: "#ccc"
-                                                font.pixelSize: 14
-                                            }
-
-                                            Rectangle {
-                                                color: "transparent"
-                                            }
-
-                                            ComboBox {
-                                                id: fontFamilyCombo
-                                                width: 180
-                                                height: 28
-                                                model: ["JetBrains Mono", "Fira Code", "Source Code Pro", "Cascadia Code", "IBM Plex Mono", "Monospace"]
-                                                currentText: card.answerFontFamily
-                                                onCurrentTextChanged: { card.answerFontFamily = currentText; }
-                                                background: Rectangle { color: "#1e1e1e"; radius: 4; border.color: "#3a3a3a"; border.width: 1 }
-                                            }
-
-                                            Slider {
-                                                id: fontSizeSlider
-                                                width: 120
-                                                height: 28
-                                                from: 10; to: 24; value: card.answerFontSize; stepSize: 1
-                                                onValueChanged: { card.answerFontSize = Math.round(value); }
-                                                background: Rectangle { color: "#1e1e1e"; radius: 4; border.color: "#3a3a3a"; border.width: 1 }
-                                            }
-
-                                            Button {
-                                                text: "Refresh"
-                                                bordered: true
-                                                enabled: selectedPromptAnswer === "⏳ No answer yet…"
-                                                onClicked: card.reloadCurrentAnswer()
-                                            }
-                                            Button {
-                                                text: "Back to Editor"
-                                                bordered: true
-                                                onClicked: card.showEditor()
-                                            }
+                                        Text {
+                                            text: "Answer"
+                                            color: "#ccc"
+                                            font.pixelSize: 14
                                         }
 
-                                        ScrollView {
-                                            anchors.fill: parent
-                                            anchors.topMargin: 40
-                                            anchors.leftMargin: 10
-                                            anchors.rightMargin: 10
-                                            anchors.bottomMargin: 10
-                                            clip: true
+                                        Rectangle {
+                                            color: "transparent"
+                                        }
 
-                                            Text {
-                                                id: answerText
-                                                width: parent.width
-                                                text: card.selectedPromptAnswer
-                                                textFormat: Text.MarkdownText
-                                                wrapMode: Text.WordWrap
-                                                color: "#ddd"
-                                                font.family: card.answerFontFamily
-                                                font.pixelSize: card.answerFontSize
-                                            }
+                                        ComboBox {
+                                            id: fontFamilyCombo
+                                            width: 180
+                                            height: 28
+                                            model: ["JetBrains Mono", "Fira Code", "Source Code Pro", "Cascadia Code", "IBM Plex Mono", "Monospace"]
+                                            Component.onCompleted: currentIndex = Math.max(0, model.indexOf(card.answerFontFamily))
+                                            onActivated: card.answerFontFamily = currentText
+                                            background: Rectangle { color: "#1e1e1e"; radius: 4; border.color: "#3a3a3a"; border.width: 1 }
+                                        }
+
+                                        Slider {
+                                            id: fontSizeSlider
+                                            width: 120
+                                            height: 28
+                                            from: 10; to: 24; value: card.answerFontSize; stepSize: 1
+                                            onValueChanged: { card.answerFontSize = Math.round(value); }
+                                            background: Rectangle { color: "#1e1e1e"; radius: 4; border.color: "#3a3a3a"; border.width: 1 }
+                                        }
+
+                                        Button {
+                                            text: "Refresh"
+                                            bordered: true
+                                            enabled: card.selectedPromptAnswer === "⏳ No answer yet…"
+                                            onClicked: card.reloadCurrentAnswer()
+                                        }
+                                        Button {
+                                            text: "Back to Editor"
+                                            bordered: true
+                                            onClicked: card.showEditor()
                                         }
                                     }
-}
+
+                                    ScrollView {
+                                        anchors.top: answerModeHeader.bottom
+                                        anchors.topMargin: 8
+                                        anchors.left: parent.left
+                                        anchors.leftMargin: 10
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: 10
+                                        anchors.bottom: parent.bottom
+                                        anchors.bottomMargin: 10
+                                        clip: true
+
+                                        Text {
+                                            id: answerText
+                                            width: parent.width
+                                            text: card.selectedPromptAnswer
+                                            textFormat: Text.MarkdownText
+                                            wrapMode: Text.WordWrap
+                                            color: "#ddd"
+                                            font.family: card.answerFontFamily
+                                            font.pixelSize: card.answerFontSize
+                                        }
+                                    }
+                                }
             }
         }
     }
@@ -692,74 +695,73 @@ Item {
                         color: "#252525"
                         radius: 8
 
-                        Column {
-                            anchors.fill: parent
+                        Row {
+                            id: answerHeader
+                            anchors.left: parent.left
+                            anchors.leftMargin: 10
+                            anchors.right: parent.right
+                            anchors.rightMargin: 10
+                            anchors.top: parent.top
+                            anchors.topMargin: 10
+                            height: 28
                             spacing: 8
 
-                            Row {
-                                anchors.left: parent.left
-                                anchors.leftMargin: 10
-                                anchors.right: parent.right
-                                anchors.rightMargin: 10
-                                anchors.top: parent.top
-                                anchors.topMargin: 10
-                                height: 28
-                                spacing: 8
-
-                                Text {
-                                    text: "Answer View"
-                                    color: "#ccc"
-                                    font.pixelSize: 14
-                                }
-
-                                Rectangle {
-                                                    color: "transparent"
-                                                }
-
-                                ComboBox {
-                                    model: ["JetBrains Mono", "Fira Code", "Source Code Pro", "Cascadia Code", "IBM Plex Mono", "Monospace"]
-                                    currentText: card.answerFontFamily
-                                    onCurrentTextChanged: { card.answerFontFamily = currentText; }
-                                    background: Rectangle { color: "#1e1e1e"; radius: 4; border.color: "#3a3a3a"; border.width: 1 }
-                                }
-
-                                Slider {
-                                    width: 120
-                                    from: 10; to: 24; value: card.answerFontSize; stepSize: 1
-                                    onValueChanged: { card.answerFontSize = Math.round(value); }
-                                    background: Rectangle { color: "#1e1e1e"; radius: 4; border.color: "#3a3a3a"; border.width: 1 }
-                                }
-
-                                Button {
-                                    text: "Refresh"
-                                    bordered: true
-                                    enabled: selectedPromptAnswer === "⏳ No answer yet…"
-                                    onClicked: card.reloadCurrentAnswer()
-                                }
-                                Button {
-                                    text: "Back to Sessions"
-                                    bordered: true
-                                    onClicked: card.showEditor()
-                                }
+                            Text {
+                                text: "Answer View"
+                                color: "#ccc"
+                                font.pixelSize: 14
                             }
 
-                            ScrollView {
-                                anchors.fill: parent
-                                anchors.topMargin: 40
-                                anchors.leftMargin: 10
-                                anchors.rightMargin: 10
-                                anchors.bottomMargin: 10
-                                clip: true
+                            Rectangle {
+                                color: "transparent"
+                            }
 
-                                Text {
-                                    width: parent.width
-                                    text: card.selectedPromptAnswer
-                                    textFormat: Text.MarkdownText
-                                    wrapMode: Text.WordWrap
-                                    color: "#ddd"
-                                    font.family: card.answerFontFamily
-                                    font.pixelSize: card.answerFontSize
-                                }
+                            ComboBox {
+                                model: ["JetBrains Mono", "Fira Code", "Source Code Pro", "Cascadia Code", "IBM Plex Mono", "Monospace"]
+                                Component.onCompleted: currentIndex = Math.max(0, model.indexOf(card.answerFontFamily))
+                                onActivated: card.answerFontFamily = currentText
+                                background: Rectangle { color: "#1e1e1e"; radius: 4; border.color: "#3a3a3a"; border.width: 1 }
+                            }
+
+                            Slider {
+                                width: 120
+                                from: 10; to: 24; value: card.answerFontSize; stepSize: 1
+                                onValueChanged: { card.answerFontSize = Math.round(value); }
+                                background: Rectangle { color: "#1e1e1e"; radius: 4; border.color: "#3a3a3a"; border.width: 1 }
+                            }
+
+                            Button {
+                                text: "Refresh"
+                                bordered: true
+                                enabled: card.selectedPromptAnswer === "⏳ No answer yet…"
+                                onClicked: card.reloadCurrentAnswer()
+                            }
+                            Button {
+                                text: "Back to Sessions"
+                                bordered: true
+                                onClicked: card.showEditor()
+                            }
+                        }
+
+                        ScrollView {
+                            anchors.top: answerHeader.bottom
+                            anchors.topMargin: 8
+                            anchors.left: parent.left
+                            anchors.leftMargin: 10
+                            anchors.right: parent.right
+                            anchors.rightMargin: 10
+                            anchors.bottom: parent.bottom
+                            anchors.bottomMargin: 10
+                            clip: true
+
+                            Text {
+                                width: parent.width
+                                text: card.selectedPromptAnswer
+                                textFormat: Text.MarkdownText
+                                wrapMode: Text.WordWrap
+                                color: "#ddd"
+                                font.family: card.answerFontFamily
+                                font.pixelSize: card.answerFontSize
                             }
                         }
                     }
