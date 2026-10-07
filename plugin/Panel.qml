@@ -121,7 +121,7 @@ Item {
                 var s = sessions[activeSessionIndex]
                 if (!s) return []
                 var q = searchText.toLowerCase()
-                return s.recent_prompts.filter(p => {
+                return s.recent_prompts.map((p, i) => ({...p, originalIndex: i})).filter(p => {
                     return String(p.prompt).toLowerCase().includes(q) && matchesDay(p.time_created)
                 })
             }
@@ -476,7 +476,7 @@ Item {
                                                     onClicked: {
                                                         card.draftText = modelData.prompt
                                                         if (modelData.answer) {
-                                                            card.showAnswer(index, modelData.answer)
+                                                            card.showAnswer(modelData.originalIndex, modelData.answer)
                                                         } else {
                                                             card.setStatus("No answer available for this prompt")
                                                         }
