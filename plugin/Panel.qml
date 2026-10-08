@@ -54,7 +54,6 @@ Item {
             property bool libPickerOpen: false
             property int viewMode: 0
             property string promptSearchText: ""
-            property string librarySearchText: ""
             property var promptSearchInput: null
             property string sessionSearchText: ""
             property int mainTab: 0
@@ -293,11 +292,9 @@ Item {
             }
 
             function filteredLibrary() {
-                var q = librarySearchText.toLowerCase()
                 return library.filter(p => {
-                    var txt = String(p.text || "").toLowerCase().includes(q)
                     var tag = !tagFilter || (p.tags || []).indexOf(tagFilter) !== -1
-                    return txt && tag
+                    return tag
                 })
             }
 
@@ -648,7 +645,7 @@ Item {
             }
 
             Shortcut { sequence: "Escape"; onActivated: root.close() }
-            Shortcut { sequence: "Ctrl+F"; onActivated: { if (card.viewMode === 1) librarySearchField.forceActiveFocus(); else if (card.viewMode === 0 && card.promptSearchInput) card.promptSearchInput.forceActiveFocus() } }
+            Shortcut { sequence: "Ctrl+F"; onActivated: { if (card.viewMode === 0 && card.promptSearchInput) card.promptSearchInput.forceActiveFocus() } }
             Shortcut { sequence: "Ctrl+W"; onActivated: card.draftText = "" }
             Shortcut { sequence: "Ctrl+S"; onActivated: card.savePrompt() }
             Shortcut { sequence: "Ctrl+E"; onActivated: card.showEditor() }
@@ -705,18 +702,6 @@ Item {
                         }
                     }
 
-                    TextField {
-                        id: librarySearchField
-                        visible: card.viewMode === 1
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 240
-                        height: 28
-                        placeholderText: "Search library..."
-                        onTextChanged: card.librarySearchText = text
-                        background: Rectangle { color: "#252525"; radius: 6 }
-                        color: "white"
-                    }
                 }
 
                 Item {
@@ -1908,6 +1893,13 @@ Item {
                                         }
                                     }
 
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        onClicked: {
+                                            card.insertIntoDraft(modelData.text || "")
+                                            card.setStatus("Inserted into prompt draft")
+                                        }
+                                    }
                                 }
                             }
                         }
