@@ -56,7 +56,8 @@ Item {
             property bool libPickerOpen: false
             property int viewMode: 0
             property string searchText: ""
-            property string dayFilter: "All"
+            property string sessionSearchText: ""
+            property int mainTab: 0
             property string tagFilter: ""
             property string draftText: ""
             property string systemPromptText: ""
@@ -110,11 +111,16 @@ Item {
             function showAnswer(promptIndex, answerText) {
                 selectedPromptIndex = promptIndex
                 selectedPromptAnswer = answerText || "⏳ No answer yet…"
-                viewMode = 1
+                mainTab = 1
+            }
+
+            function showSessions() {
+                mainTab = 0
             }
 
             function showEditor() {
                 viewMode = 0
+                mainTab = 0
                 selectedPromptIndex = -1
                 selectedPromptAnswer = ""
             }
@@ -159,8 +165,10 @@ Item {
 
             function sessionList() {
                 var arr = []
+                var q = sessionSearchText.toLowerCase()
                 for (var i = 0; i < sessions.length; i++) {
                     if (bookmarkFilter && bookmarks.indexOf(sessions[i].id) === -1) continue
+                    if (q !== "" && !String(sessions[i].title).toLowerCase().includes(q)) continue
                     arr.push(Object.assign({}, sessions[i], {originalIndex: i}))
                 }
                 return arr
@@ -180,27 +188,12 @@ Item {
                 setStatus("Injected: " + (txt.length > 30 ? txt.substring(0, 30) + "..." : txt))
             }
 
-            function matchesDay(ts) {
-                if (dayFilter === "All") return true
-                var d = new Date(ts)
-                var now = new Date()
-                if (dayFilter === "Today") return d.toDateString() === now.toDateString()
-                if (dayFilter === "Yesterday") {
-                    var y = new Date(now)
-                    y.setDate(now.getDate() - 1)
-                    return d.toDateString() === y.toDateString()
-                }
-                if (dayFilter === "7d") return now - d < 7 * 24 * 3600 * 1000
-                if (dayFilter === "30d") return now - d < 30 * 24 * 3600 * 1000
-                return true
-            }
-
             function filteredPrompts() {
                 var s = sessions[activeSessionIndex]
                 if (!s) return []
                 var q = searchText.toLowerCase()
                 return s.recent_prompts.map((p, i) => Object.assign({}, p, {originalIndex: i})).filter(p => {
-                    return String(p.prompt).toLowerCase().includes(q) && matchesDay(p.time_created)
+                    return String(p.prompt).toLowerCase().includes(q)
                 }).sort((a, b) => Number(b.time_created) - Number(a.time_created))
             }
 
@@ -512,11 +505,11 @@ Item {
             Shortcut { sequence: "Ctrl+W"; onActivated: card.draftText = "" }
             Shortcut { sequence: "Ctrl+S"; onActivated: card.savePrompt() }
             Shortcut { sequence: "Ctrl+E"; onActivated: card.showEditor() }
-            Shortcut { sequence: "Ctrl+1"; onActivated: card.viewMode = 0 }
-            Shortcut { sequence: "Ctrl+2"; onActivated: card.viewMode = 1 }
-            Shortcut { sequence: "Ctrl+3"; onActivated: card.viewMode = 2 }
-            Shortcut { sequence: "Ctrl+4"; onActivated: card.viewMode = 3 }
-            Shortcut { sequence: "Ctrl+5"; onActivated: card.viewMode = 4 }
+            Shortcut { sequence: "Ctrl+1"; onActivated: { card.viewMode = 0; card.mainTab = 0 } }
+            Shortcut { sequence: "Ctrl+2"; onActivated: { card.viewMode = 0; card.mainTab = 1 } }
+            Shortcut { sequence: "Ctrl+3"; onActivated: card.viewMode = 1 }
+            Shortcut { sequence: "Ctrl+4"; onActivated: card.viewMode = 2 }
+            Shortcut { sequence: "Ctrl+5"; onActivated: card.viewMode = 3 }
             Shortcut { sequence: "Ctrl+Return"; onActivated: card.sendPayload(false) }
 
             Column {
@@ -538,7 +531,7 @@ Item {
                     spacing: 8
 
                     Repeater {
-                        model: ["Sessions", "Answer", "Library", "Stats", "Dataset"]
+                        model: ["Main", "Library", "Stats", "Dataset"]
                         delegate: Rectangle {
                             width: 100
                             height: 28
@@ -560,7 +553,7 @@ Item {
                         id: searchField
                         width: 240
                         height: 28
-                        placeholderText: "Search... (Ctrl+F)"
+                        placeholderText: "Search prompts... (Ctrl+F)"
                         onTextChanged: card.searchText = text
                         background: Rectangle { color: "#252525"; radius: 6 }
                         color: "white"
@@ -572,20 +565,20 @@ Item {
                     visible: card.viewMode === 0
 
                     Repeater {
-                        model: ["All", "Today", "Yesterday", "7d", "30d"]
+                        model: ["Sessions", "Answers"]
                         delegate: Rectangle {
                             height: 24
                             radius: 12
-                            width: dayLabel.implicitWidth + 16
-                            color: card.dayFilter === modelData ? "#3a6df0" : "#252525"
+                            width: subLabel.implicitWidth + 20
+                            color: card.mainTab === index ? "#3a6df0" : "#252525"
                             Text {
-                                id: dayLabel
+                                id: subLabel
                                 anchors.centerIn: parent
                                 text: modelData
                                 color: "white"
                                 font.pixelSize: 11
                             }
-                            MouseArea { anchors.fill: parent; onClicked: card.dayFilter = modelData }
+                            MouseArea { anchors.fill: parent; onClicked: card.mainTab = index }
                         }
                     }
 
@@ -604,6 +597,20 @@ Item {
                             font.pixelSize: 11
                         }
                         MouseArea { anchors.fill: parent; onClicked: card.toggleBookmarkFilter() }
+                    }
+
+                    Item { width: 4; height: 1 }
+
+                    TextField {
+                        id: sessionSearchField
+                        width: 220
+                        height: 24
+                        visible: card.mainTab === 0
+                        placeholderText: "Search session titles..."
+                        onTextChanged: card.sessionSearchText = text
+                        background: Rectangle { color: "#252525"; radius: 6 }
+                        color: "white"
+                        font.pixelSize: 11
                     }
                 }
             }
@@ -627,21 +634,16 @@ Item {
                 Loader {
                     anchors.fill: parent
                     active: card.viewMode === 1
-                    sourceComponent: answerView
-                }
-                Loader {
-                    anchors.fill: parent
-                    active: card.viewMode === 2
                     sourceComponent: libraryView
                 }
                 Loader {
                     anchors.fill: parent
-                    active: card.viewMode === 3
+                    active: card.viewMode === 2
                     sourceComponent: statsView
                 }
                 Loader {
                     anchors.fill: parent
-                    active: card.viewMode === 4
+                    active: card.viewMode === 3
                     sourceComponent: datasetView
                 }
             }
@@ -665,6 +667,7 @@ Component {
                     // ---------- Left: sessions + prompts ----------
                     Item {
                         id: leftPane
+                        visible: card.mainTab === 0
                         anchors.left: parent.left
                         anchors.top: parent.top
                         anchors.bottom: parent.bottom
@@ -911,9 +914,93 @@ Component {
                         }
                     }
 
+                    // Answers pane (inline on Main, Sessions|Answers = Answers)
+                Item {
+                    id: answersPane
+                    visible: card.mainTab === 1
+                    anchors.fill: parent
+                    anchors.margins: 4
+
+                    Rectangle {
+                        anchors.fill: parent
+                        color: "#252525"
+                        radius: 8
+
+                        Row {
+                            id: answersHeader
+                            anchors.left: parent.left
+                            anchors.leftMargin: 10
+                            anchors.right: parent.right
+                            anchors.rightMargin: 10
+                            anchors.top: parent.top
+                            anchors.topMargin: 10
+                            height: 28
+                            spacing: 8
+
+                            Text {
+                                text: "Answer"
+                                color: "#ccc"
+                                font.pixelSize: 14
+                            }
+
+                            Item { Layout.fillWidth: true }
+
+                            ComboBox {
+                                model: ["JetBrains Mono", "Fira Code", "Source Code Pro", "Cascadia Code", "IBM Plex Mono", "Monospace"]
+                                Component.onCompleted: currentIndex = Math.max(0, model.indexOf(card.answerFontFamily))
+                                onActivated: card.answerFontFamily = currentText
+                                background: Rectangle { color: "#1e1e1e"; radius: 4; border.color: "#3a3a3a"; border.width: 1 }
+                            }
+
+                            Slider {
+                                width: 120
+                                from: 10; to: 24; value: card.answerFontSize; stepSize: 1
+                                onValueChanged: { card.answerFontSize = Math.round(value); }
+                                background: Rectangle { color: "#1e1e1e"; radius: 4; border.color: "#3a3a3a"; border.width: 1 }
+                            }
+
+                            Button {
+                                text: "Refresh"
+                                bordered: true
+                                onClicked: card.reloadCurrentAnswer()
+                            }
+
+                            Button {
+                                text: "Back to Sessions"
+                                bordered: true
+                                onClicked: card.showSessions()
+                            }
+                        }
+
+                        ScrollView {
+                            id: answersScroll
+                            anchors.top: answersHeader.bottom
+                            anchors.topMargin: 8
+                            anchors.left: parent.left
+                            anchors.leftMargin: 10
+                            anchors.right: parent.right
+                            anchors.rightMargin: 10
+                            anchors.bottom: parent.bottom
+                            anchors.bottomMargin: 10
+                            clip: true
+
+                            Text {
+                                width: answersScroll.availableWidth
+                                text: card.selectedPromptAnswer
+                                textFormat: Text.MarkdownText
+                                wrapMode: Text.WordWrap
+                                color: "#ddd"
+                                font.family: card.answerFontFamily
+                                font.pixelSize: card.answerFontSize
+                            }
+                        }
+                    }
+                }
+
                     // ---------- Right: key injections + system + user prompt ----------
                     Item {
                         id: rightPane
+                        visible: card.mainTab === 0
                         anchors.left: leftPane.right
                         anchors.leftMargin: 8
                         anchors.right: parent.right
@@ -1340,91 +1427,6 @@ Component {
                                         }
                                     }
                                 }
-                            }
-                        }
-                    }
-                }
-            }
-            Component {
-                id: answerView
-
-                Item {
-                    anchors.fill: parent
-
-                    // Full-width answer view for Ctrl+2 direct access
-                    Rectangle {
-                        anchors.fill: parent
-                        color: "#252525"
-                        radius: 8
-
-                        Row {
-                            id: answerHeader
-                            anchors.left: parent.left
-                            anchors.leftMargin: 10
-                            anchors.right: parent.right
-                            anchors.rightMargin: 10
-                            anchors.top: parent.top
-                            anchors.topMargin: 10
-                            height: 28
-                            spacing: 8
-
-                            Text {
-                                text: "Answer View"
-                                color: "#ccc"
-                                font.pixelSize: 14
-                            }
-
-                            Rectangle {
-                                color: "transparent"
-                            }
-
-                            ComboBox {
-                                model: ["JetBrains Mono", "Fira Code", "Source Code Pro", "Cascadia Code", "IBM Plex Mono", "Monospace"]
-                                Component.onCompleted: currentIndex = Math.max(0, model.indexOf(card.answerFontFamily))
-                                onActivated: card.answerFontFamily = currentText
-                                background: Rectangle { color: "#1e1e1e"; radius: 4; border.color: "#3a3a3a"; border.width: 1 }
-                            }
-
-                            Slider {
-                                width: 120
-                                from: 10; to: 24; value: card.answerFontSize; stepSize: 1
-                                onValueChanged: { card.answerFontSize = Math.round(value); }
-                                background: Rectangle { color: "#1e1e1e"; radius: 4; border.color: "#3a3a3a"; border.width: 1 }
-                            }
-
-                            Button {
-                                text: "Refresh"
-                                bordered: true
-                                enabled: card.selectedPromptAnswer === "⏳ No answer yet…"
-                                onClicked: card.reloadCurrentAnswer()
-                            }
-                            Button {
-                                text: "Back to Sessions"
-                                bordered: true
-                                onClicked: card.showEditor()
-                            }
-                        }
-
-                        ScrollView {
-                            id: answerScroll
-                            anchors.top: answerHeader.bottom
-                            anchors.topMargin: 8
-                            anchors.left: parent.left
-                            anchors.leftMargin: 10
-                            anchors.right: parent.right
-                            anchors.rightMargin: 10
-                            anchors.bottom: parent.bottom
-                            anchors.bottomMargin: 10
-                            clip: true
-
-                            Text {
-                                width: answerScroll.availableWidth
-                                text: card.selectedPromptAnswer
-                                textFormat: Text.MarkdownText
-                                wrapMode: Text.WordWrap
-                                color: "#ddd"
-                                font.family: card.answerFontFamily
-                                font.pixelSize: card.answerFontSize
                             }
                         }
                     }
