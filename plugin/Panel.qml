@@ -48,6 +48,7 @@ Item {
             property var sessions: []
             property int activeSessionIndex: 0
             property var library: []
+            property string libraryNewText: ""
             property var bookmarks: []
             property bool sessionsCollapsed: false
             property bool bookmarkFilter: false
@@ -298,6 +299,56 @@ Item {
                 })
             }
 
+            function extractTags(txt) {
+                var out = []
+                var re = /#(\w+)/g
+                var m
+                while ((m = re.exec(String(txt || ""))) !== null) {
+                    if (out.indexOf(m[1]) === -1) out.push(m[1])
+                }
+                return out
+            }
+
+            function updateLibraryItem(id, newText) {
+                var next = []
+                for (var i = 0; i < library.length; i++) {
+                    var it = library[i]
+                    if (it.id === id) {
+                        next.push({
+                            id: it.id,
+                            text: newText,
+                            created_at: it.created_at,
+                            tags: extractTags(newText),
+                            favourite: !!it.favourite
+                        })
+                    } else {
+                        next.push(it)
+                    }
+                }
+                library = next
+                libView.setText(JSON.stringify({ library: next }, null, 2))
+                setStatus("Library item updated")
+            }
+
+            function deleteLibraryItem(id) {
+                var next = []
+                for (var i = 0; i < library.length; i++) {
+                    if (library[i].id !== id) next.push(library[i])
+                }
+                library = next
+                libView.setText(JSON.stringify({ library: next }, null, 2))
+                setStatus("Library item deleted")
+            }
+
+            function addPromptToLibrary() {
+                if (libraryNewText.trim() === "") {
+                    setStatus("Nothing to add")
+                    return
+                }
+                if (libAddProc.running) return
+                libAddProc.running = true
+            }
+
             function skillStyle(name) {
                 return skillStyles[name] || {}
             }
@@ -530,6 +581,20 @@ Item {
                         libView.reload()
                     } else {
                         card.setStatus("Save failed (exit " + exitCode + ")")
+                    }
+                }
+            }
+
+            Process {
+                id: libAddProc
+                command: ["python3", card.pluginDir + "/scripts/save_prompt.py", card.libraryNewText]
+                onExited: (exitCode, exitStatus) => {
+                    if (exitCode === 0) {
+                        card.libraryNewText = ""
+                        card.setStatus("Added to library")
+                        libView.reload()
+                    } else {
+                        card.setStatus("Add failed (exit " + exitCode + ")")
                     }
                 }
             }
@@ -1836,16 +1901,17 @@ Item {
                         id: libScroll
                         anchors.top: tagFlow.bottom
                         anchors.topMargin: 8
-                        anchors.bottom: parent.bottom
-                        anchors.bottomMargin: 10
+                        anchors.bottom: libComposer.top
+                        anchors.bottomMargin: 8
                         anchors.left: parent.left
                         anchors.leftMargin: 10
                         anchors.right: parent.right
                         anchors.rightMargin: 10
                         clip: true
+                        contentWidth: availableWidth
 
-                        Column {
-                            id: libList
+                        Flow {
+                            id: libGrid
                             width: libScroll.availableWidth
                             spacing: 6
 
@@ -1853,27 +1919,48 @@ Item {
                                 id: libRepeater
                                 model: card.filteredLibrary()
                                 delegate: Rectangle {
-                                    width: libList.width
-                                    height: libItemCol.implicitHeight + 16
-                                    color: "#252525"
-                                    radius: 6
+                                    id: libCard
+                                    property bool dirty: false
+                                    property bool deleteArmed: false
+
+                                    width: Math.floor((libScroll.availableWidth - 6) / 2)
+                                    height: 180
+                                    radius: 8
+                                    color: "#202020"
+                                    border.width: 1
+                                    border.color: libCard.dirty ? "#3a6df0" : "#2e2e2e"
 
                                     Column {
-                                        id: libItemCol
-                                        anchors.fill: parent
+                                        id: libCardCol
+                                        anchors.top: parent.top
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
                                         anchors.margins: 8
                                         spacing: 4
 
-                                        Text {
+                                        ScrollView {
+                                            id: libEditScroll
                                             width: parent.width
-                                            text: modelData.text.length > 300 ? modelData.text.slice(0, 300) + "…" : modelData.text
-                                            wrapMode: Text.WordWrap
-                                            color: "#ddd"
-                                            font.pixelSize: 12
+                                            height: 96
+                                            clip: true
+
+                                            TextArea {
+                                                id: libEditEditor
+                                                width: libEditScroll.availableWidth
+                                                wrapMode: TextArea.Wrap
+                                                background: Item {}
+                                                color: "#ddd"
+                                                font.pixelSize: 11
+                                                selectByMouse: true
+                                                text: modelData.text
+                                                onTextChanged: libCard.dirty = (text !== modelData.text)
+                                            }
                                         }
 
                                         Flow {
                                             width: parent.width
+                                            height: 14
+                                            clip: true
                                             spacing: 4
 
                                             Repeater {
@@ -1893,14 +1980,97 @@ Item {
                                         }
                                     }
 
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        onClicked: {
-                                            card.insertIntoDraft(modelData.text || "")
-                                            card.setStatus("Inserted into prompt draft")
+                                    Row {
+                                        anchors.left: parent.left
+                                        anchors.leftMargin: 8
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: 8
+                                        anchors.bottom: parent.bottom
+                                        anchors.bottomMargin: 8
+                                        spacing: 6
+
+                                        Button {
+                                            text: "Save"
+                                            enabled: libCard.dirty
+                                            opacity: libCard.dirty ? 1 : 0.4
+                                            onClicked: card.updateLibraryItem(modelData.id, libEditEditor.text)
+                                        }
+
+                                        Button {
+                                            visible: libCard.dirty
+                                            text: "Revert"
+                                            onClicked: {
+                                                libEditEditor.text = modelData.text
+                                                libCard.dirty = false
+                                            }
+                                        }
+
+                                        Button {
+                                            text: libCard.deleteArmed ? "Confirm?" : "Delete"
+                                            onClicked: {
+                                                if (libCard.deleteArmed) {
+                                                    card.deleteLibraryItem(modelData.id)
+                                                } else {
+                                                    libCard.deleteArmed = true
+                                                    delDisarm.restart()
+                                                }
+                                            }
                                         }
                                     }
+
+                                    Timer {
+                                        id: delDisarm
+                                        interval: 4000
+                                        onTriggered: libCard.deleteArmed = false
+                                    }
                                 }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        id: libComposer
+                        anchors.left: parent.left
+                        anchors.leftMargin: 10
+                        anchors.right: parent.right
+                        anchors.rightMargin: 10
+                        anchors.bottom: parent.bottom
+                        height: 34
+                        radius: 6
+                        color: "#252525"
+
+                        TextField {
+                            id: libNewField
+                            anchors.left: parent.left
+                            anchors.leftMargin: 6
+                            anchors.right: libAddBtn.left
+                            anchors.rightMargin: 6
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: 24
+                            placeholderText: "New prompt… (#tags extracted — Enter to add)"
+                            text: card.libraryNewText
+                            onTextChanged: card.libraryNewText = text
+                            onAccepted: card.addPromptToLibrary()
+                            background: Rectangle { color: "#1a1a1a"; radius: 6 }
+                            color: "white"
+                            font.pixelSize: 12
+                        }
+
+                        Button {
+                            id: libAddBtn
+                            text: "Add"
+                            bordered: true
+                            anchors.right: parent.right
+                            anchors.rightMargin: 6
+                            anchors.verticalCenter: parent.verticalCenter
+                            onClicked: card.addPromptToLibrary()
+                        }
+
+                        Connections {
+                            target: card
+                            function onLibraryNewTextChanged() {
+                                if (libNewField.text !== card.libraryNewText)
+                                    libNewField.text = card.libraryNewText
                             }
                         }
                     }
