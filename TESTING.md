@@ -45,8 +45,7 @@ cat ~/.cache/opencode-sessions/sessions.json | jq '.sessions | length'
 - [ ] Record checkbox appends a training row (Dataset tab count +1)
 
 ### Library tab (Ctrl+3)
-- [ ] Items load; tag chips filter; search filters
-- [ ] Click item → inserts into the Main-tab draft (status confirms)
+- [ ] Items list; tag chips filter; search filters (items are display-only)
 - [ ] Export JSON / Export MD create `/tmp/opencode-library-*.{json,md}`
 - [ ] Import merges a previously exported JSON (dedup by id)
 
