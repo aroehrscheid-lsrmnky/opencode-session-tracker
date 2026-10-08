@@ -67,8 +67,18 @@ Item {
             property string answerFontFamily: "JetBrains Mono"
             property string selectedPromptAnswer: ""
             property int selectedPromptIndex: -1
+            property int selectedPromptSession: 0
+            property string selectedPromptText: ""
+            readonly property real leftPaneWidth: Math.max(360, (contentArea.width - 8) * 0.42)
+            property int answerPos: 0
+            property int answerCount: 0
             property bool keyInjectionsOpen: false
             property var skills: []
+            property var skillStyles: ({})
+            property string skillSearchText: ""
+            property string composeSkillSearchText: ""
+            property var emojiPalette: ["💡", "🛠️", "⚡", "🧩", "🐛", "🎨", "📦", "🗂️", "🔧", "🧭", "🧪", "📐", "🚀", "🔒", "🤖", "🌱", "🔍", "📚", "✅", "⚙️", "🎯", "🔥"]
+            property var colorPalette: ["#3a6df0", "#2f9e6f", "#c46b2f", "#8e44ad", "#16a2b8", "#c0392b", "#b8952f", "#e05555", "#555f6e", "#2fa84f", "#1f6feb", "#d29922", "#db6d28", "#a371f7", "#f778ba", "#39c5cf", "#56d364", "#ff7b72", "#8b949e", "#7ee787", "#ffa657", "#d2a8ff", "#e85d4a", "#4a9eda"]
             property var selectedSkills: []
             property bool cleanupOn: false
             property bool recordOn: false
@@ -77,6 +87,7 @@ Item {
             property int trainingCount: 0
             property string trainingText: ""
             property string skillsPath: home + "/.cache/opencode-sessions/skills.json"
+            property string skillStylesPath: home + "/.cache/opencode-sessions/skill_styles.json"
             property string trainingPath: home + "/.cache/opencode-sessions/training.jsonl"
             property string exporterPath: home + "/documents/opencode-session-tracker/exporter.py"
             property var keyInjections: [
@@ -108,14 +119,67 @@ Item {
                 saveProc.running = true
             }
 
-            function showAnswer(promptIndex, answerText) {
+            function showAnswer(promptIndex, answerText, sessionIndex) {
+                if (sessionIndex !== undefined && sessionIndex !== activeSessionIndex)
+                    activeSessionIndex = sessionIndex
+                selectedPromptSession = activeSessionIndex
+                var s = sessions[activeSessionIndex]
+                var txt = ""
+                if (s && s.recent_prompts && s.recent_prompts[promptIndex])
+                    txt = String(s.recent_prompts[promptIndex].prompt || "")
                 selectedPromptIndex = promptIndex
+                selectedPromptText = txt
                 selectedPromptAnswer = answerText || "⏳ No answer yet…"
+                mainTab = 1
+                updateAnswerPos()
+            }
+
+            function updateAnswerPos() {
+                var list = filteredPrompts()
+                answerCount = list.length
+                answerPos = 0
+                for (var i = 0; i < list.length; i++) {
+                    if (list[i].originalIndex === selectedPromptIndex && list[i].sessionIndex === selectedPromptSession) { answerPos = i + 1; break }
+                }
+            }
+
+            function openAnswer() {
+                var list = filteredPrompts()
+                if (list.length === 0) {
+                    setStatus("No prompts in this session")
+                    return
+                }
+                var pos = 0
+                for (var i = 0; i < list.length; i++) {
+                    if (list[i].originalIndex === selectedPromptIndex && list[i].sessionIndex === selectedPromptSession) { pos = i; break }
+                }
+                showAnswer(list[pos].originalIndex, list[pos].answer, list[pos].sessionIndex)
+            }
+
+            function navigateAnswer(delta) {
+                var list = filteredPrompts()
+                if (list.length === 0) return
+                var pos = -1
+                for (var i = 0; i < list.length; i++) {
+                    if (list[i].originalIndex === selectedPromptIndex && list[i].sessionIndex === selectedPromptSession) { pos = i; break }
+                }
+                if (pos === -1) pos = delta > 0 ? 0 : list.length - 1
+                else pos += delta
+                pos = Math.max(0, Math.min(list.length - 1, pos))
+                var p = list[pos]
+                if (p.sessionIndex !== activeSessionIndex) activeSessionIndex = p.sessionIndex
+                selectedPromptSession = p.sessionIndex
+                selectedPromptIndex = p.originalIndex
+                selectedPromptText = String(p.prompt || "")
+                selectedPromptAnswer = p.answer || "⏳ No answer yet…"
+                answerPos = pos + 1
+                answerCount = list.length
                 mainTab = 1
             }
 
             function showSessions() {
                 mainTab = 0
+                updateAnswerPos()
             }
 
             function showEditor() {
@@ -123,6 +187,17 @@ Item {
                 mainTab = 0
                 selectedPromptIndex = -1
                 selectedPromptAnswer = ""
+                selectedPromptText = ""
+            }
+
+            function selectSession(i) {
+                activeSessionIndex = i
+                if (mainTab === 1) {
+                    mainTab = 0
+                    selectedPromptIndex = -1
+                    selectedPromptAnswer = ""
+                    selectedPromptText = ""
+                }
             }
 
             function reloadCurrentAnswer() {
@@ -188,11 +263,21 @@ Item {
                 setStatus("Injected: " + (txt.length > 30 ? txt.substring(0, 30) + "..." : txt))
             }
 
+            function sessionEntries(idx) {
+                var s = sessions[idx]
+                if (!s || !s.recent_prompts) return []
+                return s.recent_prompts.map((p, i) => Object.assign({}, p, {originalIndex: i, sessionIndex: idx}))
+            }
+
             function filteredPrompts() {
-                var s = sessions[activeSessionIndex]
-                if (!s) return []
-                var q = searchText.toLowerCase()
-                return s.recent_prompts.map((p, i) => Object.assign({}, p, {originalIndex: i})).filter(p => {
+                var q = searchText.toLowerCase().trim()
+                var entries = []
+                if (q === "") {
+                    entries = sessionEntries(activeSessionIndex)
+                } else {
+                    for (var i = 0; i < sessions.length; i++) entries = entries.concat(sessionEntries(i))
+                }
+                return entries.filter(p => {
                     return String(p.prompt).toLowerCase().includes(q)
                 }).sort((a, b) => Number(b.time_created) - Number(a.time_created))
             }
@@ -215,6 +300,54 @@ Item {
                     var tag = !tagFilter || (p.tags || []).indexOf(tagFilter) !== -1
                     return txt && tag
                 })
+            }
+
+            function skillStyle(name) {
+                return skillStyles[name] || {}
+            }
+
+            function skillHash(name) {
+                var h = 0
+                for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 100000
+                return h
+            }
+
+            function skillEmoji(name) {
+                var st = skillStyles[name]
+                if (st && st.emoji) return st.emoji
+                return emojiPalette[skillHash(name) % emojiPalette.length]
+            }
+
+            function skillColor(name) {
+                var st = skillStyles[name]
+                if (st && st.color) return st.color
+                return colorPalette[skillHash(name) % colorPalette.length]
+            }
+
+            function setSkillStyle(name, key, value) {
+                var st = {}
+                var cur = skillStyles[name]
+                if (cur) { for (var k in cur) st[k] = cur[k] }
+                st[key] = value
+                var next = {}
+                for (var nm in skillStyles) next[nm] = skillStyles[nm]
+                next[name] = st
+                skillStyles = next
+                skillStylesView.setText(JSON.stringify(skillStyles, null, 2))
+            }
+
+            function filteredSkills() {
+                var q = skillSearchText.toLowerCase().trim()
+                if (q === "") return skills
+                return skills.filter(sk => {
+                    return String(sk.name).toLowerCase().includes(q) || String(sk.description || "").toLowerCase().includes(q)
+                })
+            }
+
+            function filteredComposeSkills() {
+                var q = composeSkillSearchText.toLowerCase().trim()
+                if (q === "") return skills
+                return skills.filter(sk => String(sk.name).toLowerCase().includes(q))
             }
 
             function skillSelected(name) {
@@ -354,6 +487,21 @@ Item {
                         card.skills = JSON.parse(String(text() || "{}")).skills || []
                     } catch (e) {
                         card.skills = []
+                    }
+                }
+            }
+
+            FileView {
+                id: skillStylesView
+                path: card.skillStylesPath
+                watchChanges: true
+                printErrors: false
+                onFileChanged: reload()
+                onLoaded: {
+                    try {
+                        card.skillStyles = JSON.parse(String(text() || "{}")) || {}
+                    } catch (e) {
+                        card.skillStyles = {}
                     }
                 }
             }
@@ -501,16 +649,20 @@ Item {
             }
 
             Shortcut { sequence: "Escape"; onActivated: root.close() }
-            Shortcut { sequence: "Ctrl+F"; onActivated: searchField.forceActiveFocus() }
+            Shortcut { sequence: "Ctrl+F"; onActivated: { if (card.viewMode === 1) librarySearchField.forceActiveFocus(); else if (card.viewMode === 0) searchField.forceActiveFocus() } }
             Shortcut { sequence: "Ctrl+W"; onActivated: card.draftText = "" }
             Shortcut { sequence: "Ctrl+S"; onActivated: card.savePrompt() }
             Shortcut { sequence: "Ctrl+E"; onActivated: card.showEditor() }
             Shortcut { sequence: "Ctrl+1"; onActivated: { card.viewMode = 0; card.mainTab = 0 } }
-            Shortcut { sequence: "Ctrl+2"; onActivated: { card.viewMode = 0; card.mainTab = 1 } }
+            Shortcut { sequence: "Ctrl+2"; onActivated: { card.viewMode = 0; card.openAnswer() } }
             Shortcut { sequence: "Ctrl+3"; onActivated: card.viewMode = 1 }
             Shortcut { sequence: "Ctrl+4"; onActivated: card.viewMode = 2 }
             Shortcut { sequence: "Ctrl+5"; onActivated: card.viewMode = 3 }
+            Shortcut { sequence: "Ctrl+6"; onActivated: card.viewMode = 4 }
             Shortcut { sequence: "Ctrl+Return"; onActivated: card.sendPayload(false) }
+            Shortcut { sequence: "Ctrl+Shift+Right"; onActivated: card.navigateAnswer(1) }
+            Shortcut { sequence: "Ctrl+Shift+Left"; onActivated: card.navigateAnswer(-1) }
+            Shortcut { sequence: "Ctrl+Shift+Up"; onActivated: card.openAnswer() }
 
             Column {
                 id: headerCol
@@ -527,87 +679,172 @@ Item {
                     font.bold: true
                 }
 
-                Row {
-                    spacing: 8
+                Item {
+                    id: topTabRow
+                    width: headerCol.width
+                    height: 28
 
-                    Repeater {
-                        model: ["Main", "Library", "Stats", "Dataset"]
-                        delegate: Rectangle {
-                            width: 100
-                            height: 28
-                            radius: 6
-                            color: card.viewMode === index ? "#3a6df0" : "#252525"
-                            Text {
-                                anchors.centerIn: parent
-                                text: modelData
-                                color: "white"
-                                font.pixelSize: 12
+                    Row {
+                        id: topTabs
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 8
+
+                        Repeater {
+                            model: ["Main", "Library", "Skills", "Stats", "Dataset"]
+                            delegate: Rectangle {
+                                width: 100
+                                height: 28
+                                radius: 6
+                                color: card.viewMode === index ? "#3a6df0" : "#252525"
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: modelData
+                                    color: "white"
+                                    font.pixelSize: 12
+                                }
+                                MouseArea { anchors.fill: parent; onClicked: card.viewMode = index }
                             }
-                            MouseArea { anchors.fill: parent; onClicked: card.viewMode = index }
                         }
                     }
 
-                    Item { width: 16; height: 1 }
-
                     TextField {
-                        id: searchField
+                        id: librarySearchField
+                        visible: card.viewMode === 1
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
                         width: 240
                         height: 28
-                        placeholderText: "Search prompts... (Ctrl+F)"
+                        placeholderText: "Search library..."
                         onTextChanged: card.searchText = text
                         background: Rectangle { color: "#252525"; radius: 6 }
                         color: "white"
                     }
                 }
 
-                Row {
-                    spacing: 6
-                    visible: card.viewMode === 0
+                Item {
+                    id: subTabRow
+                    visible: card.viewMode === 0 || card.viewMode === 2
+                    width: headerCol.width
+                    height: 24
 
-                    Repeater {
-                        model: ["Sessions", "Answers"]
-                        delegate: Rectangle {
+                    Item {
+                        id: leftColEdge
+                        anchors.left: parent.left
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: card.leftPaneWidth
+                    }
+
+                    Row {
+                        id: subTabs
+                        visible: card.viewMode === 0
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 6
+
+                        Repeater {
+                            model: ["Sessions", "Answers"]
+                            delegate: Rectangle {
+                                height: 24
+                                radius: 12
+                                width: subLabel.implicitWidth + 20
+                                color: card.mainTab === index ? "#3a6df0" : "#252525"
+                                Text {
+                                    id: subLabel
+                                    anchors.centerIn: parent
+                                    text: modelData
+                                    color: "white"
+                                    font.pixelSize: 11
+                                }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: {
+                                        if (index === 1) card.openAnswer()
+                                        else card.showSessions()
+                                    }
+                                }
+                            }
+                        }
+
+                        Item { width: 4; height: 1 }
+
+                        Rectangle {
                             height: 24
                             radius: 12
-                            width: subLabel.implicitWidth + 20
-                            color: card.mainTab === index ? "#3a6df0" : "#252525"
+                            width: bmFilterLabel.implicitWidth + 16
+                            color: card.bookmarkFilter ? "#3a6df0" : "#252525"
                             Text {
-                                id: subLabel
+                                id: bmFilterLabel
                                 anchors.centerIn: parent
-                                text: modelData
+                                text: "\u2605 Bookmarked"
                                 color: "white"
                                 font.pixelSize: 11
                             }
-                            MouseArea { anchors.fill: parent; onClicked: card.mainTab = index }
+                            MouseArea { anchors.fill: parent; onClicked: card.toggleBookmarkFilter() }
                         }
                     }
 
-                    Item { width: 4; height: 1 }
-
-                    Rectangle {
-                        height: 24
-                        radius: 12
-                        width: bmFilterLabel.implicitWidth + 16
-                        color: card.bookmarkFilter ? "#3a6df0" : "#252525"
-                        Text {
-                            id: bmFilterLabel
-                            anchors.centerIn: parent
-                            text: "★ Bookmarked"
-                            color: "white"
-                            font.pixelSize: 11
-                        }
-                        MouseArea { anchors.fill: parent; onClicked: card.toggleBookmarkFilter() }
+                    Text {
+                        visible: card.viewMode === 2
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Skill Appearance  (" + card.skills.length + ")"
+                        color: "#ccc"
+                        font.pixelSize: 12
                     }
 
-                    Item { width: 4; height: 1 }
+                    Text {
+                        visible: card.viewMode === 0
+                        anchors.left: leftColEdge.right
+                        anchors.leftMargin: 8
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "Skills" + (card.selectedSkills.length > 0 ? "  (" + card.selectedSkills.length + " selected)" : "")
+                        color: "#aaa"
+                        font.pixelSize: 11
+                        font.weight: Font.Medium
+                    }
 
                     TextField {
                         id: sessionSearchField
-                        width: 220
+                        visible: card.viewMode === 0
+                        anchors.right: leftColEdge.right
+                        anchors.rightMargin: 10
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 200
                         height: 24
-                        visible: card.mainTab === 0
                         placeholderText: "Search session titles..."
                         onTextChanged: card.sessionSearchText = text
+                        background: Rectangle { color: "#252525"; radius: 6 }
+                        color: "white"
+                        font.pixelSize: 11
+                    }
+
+                    TextField {
+                        id: skillSearchField
+                        visible: card.viewMode === 2
+                        anchors.right: leftColEdge.right
+                        anchors.rightMargin: 10
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 200
+                        height: 24
+                        placeholderText: "Search skills..."
+                        onTextChanged: card.skillSearchText = text
+                        background: Rectangle { color: "#252525"; radius: 6 }
+                        color: "white"
+                        font.pixelSize: 11
+                    }
+
+                    TextField {
+                        id: composeSkillSearchField
+                        visible: card.viewMode === 0
+                        anchors.right: parent.right
+                        anchors.rightMargin: 6
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 200
+                        height: 24
+                        placeholderText: "Search skills to toggle..."
+                        onTextChanged: card.composeSkillSearchText = text
                         background: Rectangle { color: "#252525"; radius: 6 }
                         color: "white"
                         font.pixelSize: 11
@@ -639,11 +876,16 @@ Item {
                 Loader {
                     anchors.fill: parent
                     active: card.viewMode === 2
-                    sourceComponent: statsView
+                    sourceComponent: skillsEditView
                 }
                 Loader {
                     anchors.fill: parent
                     active: card.viewMode === 3
+                    sourceComponent: statsView
+                }
+                Loader {
+                    anchors.fill: parent
+                    active: card.viewMode === 4
                     sourceComponent: datasetView
                 }
             }
@@ -667,11 +909,10 @@ Component {
                     // ---------- Left: sessions + prompts ----------
                     Item {
                         id: leftPane
-                        visible: card.mainTab === 0
                         anchors.left: parent.left
                         anchors.top: parent.top
                         anchors.bottom: parent.bottom
-                        width: Math.max(360, (parent.width - 8) * 0.42)
+                        width: card.leftPaneWidth
 
                         // Sessions toggle bar
                         Rectangle {
@@ -722,7 +963,7 @@ Component {
                             anchors.topMargin: 6
                             anchors.left: parent.left
                             anchors.right: parent.right
-                            height: 200
+                            height: Math.max(72, Math.round(parent.height / 5))
                             radius: 8
                             color: "#202020"
 
@@ -779,7 +1020,7 @@ Component {
                                                 anchors.right: chipStar.left
                                                 anchors.top: parent.top
                                                 anchors.bottom: parent.bottom
-                                                onClicked: card.activeSessionIndex = origIdx
+                                                onClicked: card.selectSession(origIdx)
                                             }
                                         }
                                     }
@@ -790,6 +1031,7 @@ Component {
                         // Recent Prompts navigation (below sessions)
                         Rectangle {
                             id: promptListPane
+                            visible: !(card.mainTab === 1 && card.selectedPromptIndex >= 0)
                             anchors.top: card.sessionsCollapsed ? collapsedToggle.bottom : sessionChipsBox.bottom
                             anchors.topMargin: 6
                             anchors.left: parent.left
@@ -798,14 +1040,39 @@ Component {
                             color: "#252525"
                             radius: 8
 
-                            Text {
+                            Row {
                                 id: promptsHeader
                                 anchors.top: parent.top
                                 anchors.left: parent.left
+                                anchors.right: parent.right
                                 anchors.margins: 10
-                                text: "Recent Prompts"
-                                color: "#ccc"
-                                font.pixelSize: 14
+                                height: 24
+                                spacing: 8
+
+                                Text {
+                                    id: recentLabel
+                                    height: 24
+                                    verticalAlignment: Text.AlignVCenter
+                                    text: "Recent Prompts"
+                                    color: "#ccc"
+                                    font.pixelSize: 14
+                                }
+
+                                Item {
+                                    width: Math.max(0, promptsHeader.width - recentLabel.width - searchField.width - promptsHeader.spacing * 2)
+                                    height: 1
+                                }
+
+                                TextField {
+                                    id: searchField
+                                    width: Math.min(200, Math.max(110, promptsHeader.width - recentLabel.width - promptsHeader.spacing * 2))
+                                    height: 22
+                                    placeholderText: "Search all sessions... (Ctrl+F)"
+                                    onTextChanged: card.searchText = text
+                                    background: Rectangle { color: "#1e1e1e"; radius: 6 }
+                                    color: "white"
+                                    font.pixelSize: 11
+                                }
                             }
 
                             ScrollView {
@@ -838,6 +1105,15 @@ Component {
                                                 font.pixelSize: 10
                                             }
 
+                                            Text {
+                                                visible: modelData.sessionIndex !== card.activeSessionIndex
+                                                width: parent.width
+                                                elide: Text.ElideRight
+                                                text: card.sessions[modelData.sessionIndex] ? "\u21b3 " + card.sessions[modelData.sessionIndex].title : ""
+                                                color: "#3a6df0"
+                                                font.pixelSize: 10
+                                            }
+
                                             Rectangle {
                                                 id: promptCard
                                                 property bool hovered: promptMa.containsMouse || copyMa.containsMouse
@@ -863,7 +1139,7 @@ Component {
                                                     hoverEnabled: true
                                                     onClicked: {
                                                         if (modelData.answer) {
-                                                            card.showAnswer(modelData.originalIndex, modelData.answer)
+                                                            card.showAnswer(modelData.originalIndex, modelData.answer, modelData.sessionIndex)
                                                         } else {
                                                             card.setStatus("No answer available for this prompt")
                                                         }
@@ -912,95 +1188,167 @@ Component {
                                 font.pixelSize: 13
                             }
                         }
-                    }
 
-                    // Answers pane (inline on Main, Sessions|Answers = Answers)
-                Item {
-                    id: answersPane
-                    visible: card.mainTab === 1
-                    anchors.fill: parent
-                    anchors.margins: 4
-
-                    Rectangle {
-                        anchors.fill: parent
-                        color: "#252525"
-                        radius: 8
-
-                        Row {
-                            id: answersHeader
+                        // ---------- Answer (left column, replaces the prompt list) ----------
+                        Rectangle {
+                            id: leftAnswerPane
+                            visible: card.mainTab === 1 && card.selectedPromptIndex >= 0
+                            anchors.top: card.sessionsCollapsed ? collapsedToggle.bottom : sessionChipsBox.bottom
+                            anchors.topMargin: 6
                             anchors.left: parent.left
-                            anchors.leftMargin: 10
                             anchors.right: parent.right
-                            anchors.rightMargin: 10
-                            anchors.top: parent.top
-                            anchors.topMargin: 10
-                            height: 28
-                            spacing: 8
-
-                            Text {
-                                text: "Answer"
-                                color: "#ccc"
-                                font.pixelSize: 14
-                            }
-
-                            Item { Layout.fillWidth: true }
-
-                            ComboBox {
-                                model: ["JetBrains Mono", "Fira Code", "Source Code Pro", "Cascadia Code", "IBM Plex Mono", "Monospace"]
-                                Component.onCompleted: currentIndex = Math.max(0, model.indexOf(card.answerFontFamily))
-                                onActivated: card.answerFontFamily = currentText
-                                background: Rectangle { color: "#1e1e1e"; radius: 4; border.color: "#3a3a3a"; border.width: 1 }
-                            }
-
-                            Slider {
-                                width: 120
-                                from: 10; to: 24; value: card.answerFontSize; stepSize: 1
-                                onValueChanged: { card.answerFontSize = Math.round(value); }
-                                background: Rectangle { color: "#1e1e1e"; radius: 4; border.color: "#3a3a3a"; border.width: 1 }
-                            }
-
-                            Button {
-                                text: "Refresh"
-                                bordered: true
-                                onClicked: card.reloadCurrentAnswer()
-                            }
-
-                            Button {
-                                text: "Back to Sessions"
-                                bordered: true
-                                onClicked: card.showSessions()
-                            }
-                        }
-
-                        ScrollView {
-                            id: answersScroll
-                            anchors.top: answersHeader.bottom
-                            anchors.topMargin: 8
-                            anchors.left: parent.left
-                            anchors.leftMargin: 10
-                            anchors.right: parent.right
-                            anchors.rightMargin: 10
                             anchors.bottom: parent.bottom
-                            anchors.bottomMargin: 10
-                            clip: true
+                            color: "#252525"
+                            radius: 8
 
                             Text {
-                                width: answersScroll.availableWidth
-                                text: card.selectedPromptAnswer
-                                textFormat: Text.MarkdownText
-                                wrapMode: Text.WordWrap
-                                color: "#ddd"
-                                font.family: card.answerFontFamily
-                                font.pixelSize: card.answerFontSize
+                                id: answerTitle
+                                anchors.left: parent.left
+                                anchors.leftMargin: 10
+                                anchors.top: parent.top
+                                anchors.topMargin: 9
+                                text: "Answer  " + card.answerPos + " / " + card.answerCount
+                                color: "#ccc"
+                                font.pixelSize: 13
+                            }
+
+                            Row {
+                                id: answerNav
+                                anchors.right: parent.right
+                                anchors.rightMargin: 10
+                                anchors.verticalCenter: answerTitle.verticalCenter
+                                spacing: 6
+
+                                Rectangle {
+                                    width: 26
+                                    height: 22
+                                    radius: 4
+                                    color: navPrevMa.containsMouse ? "#3a6df0" : "#1e1e1e"
+                                    Text { anchors.centerIn: parent; text: "◀"; color: "#ccc"; font.pixelSize: 12 }
+                                    MouseArea {
+                                        id: navPrevMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: card.navigateAnswer(-1)
+                                    }
+                                }
+
+                                Rectangle {
+                                    width: 26
+                                    height: 22
+                                    radius: 4
+                                    color: navNextMa.containsMouse ? "#3a6df0" : "#1e1e1e"
+                                    Text { anchors.centerIn: parent; text: "▶"; color: "#ccc"; font.pixelSize: 12 }
+                                    MouseArea {
+                                        id: navNextMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: card.navigateAnswer(1)
+                                    }
+                                }
+
+                                Rectangle {
+                                    width: listBtnLabel.implicitWidth + 16
+                                    height: 22
+                                    radius: 4
+                                    color: listBtnMa.containsMouse ? "#3a6df0" : "#1e1e1e"
+                                    Text {
+                                        id: listBtnLabel
+                                        anchors.centerIn: parent
+                                        text: "List"
+                                        color: "#ccc"
+                                        font.pixelSize: 12
+                                    }
+                                    MouseArea {
+                                        id: listBtnMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: card.showSessions()
+                                    }
+                                }
+                            }
+
+                            Row {
+                                id: answerFontRow
+                                anchors.top: answerTitle.bottom
+                                anchors.topMargin: 8
+                                anchors.left: parent.left
+                                anchors.leftMargin: 10
+                                spacing: 6
+
+                                ComboBox {
+                                    model: ["JetBrains Mono", "Fira Code", "Source Code Pro", "Cascadia Code", "IBM Plex Mono", "Monospace"]
+                                    Component.onCompleted: currentIndex = Math.max(0, model.indexOf(card.answerFontFamily))
+                                    onActivated: card.answerFontFamily = currentText
+                                    background: Rectangle { color: "#1e1e1e"; radius: 4; border.color: "#3a3a3a"; border.width: 1 }
+                                }
+
+                                Slider {
+                                    width: 90
+                                    from: 10; to: 24; value: card.answerFontSize; stepSize: 1
+                                    onValueChanged: { card.answerFontSize = Math.round(value); }
+                                    background: Rectangle { color: "#1e1e1e"; radius: 4; border.color: "#3a3a3a"; border.width: 1 }
+                                }
+
+                                Button {
+                                    text: "Refresh"
+                                    bordered: true
+                                    onClicked: card.reloadCurrentAnswer()
+                                }
+                            }
+
+                            Rectangle {
+                                id: selectedPromptBox
+                                anchors.top: answerFontRow.bottom
+                                anchors.topMargin: 8
+                                anchors.left: parent.left
+                                anchors.leftMargin: 10
+                                anchors.right: parent.right
+                                anchors.rightMargin: 10
+                                height: Math.min(selectedPromptText.implicitHeight + 12, 88)
+                                color: "#1e1e1e"
+                                radius: 6
+
+                                Text {
+                                    id: selectedPromptText
+                                    anchors.fill: parent
+                                    anchors.margins: 6
+                                    text: card.selectedPromptText
+                                    color: "#8ab4f8"
+                                    font.pixelSize: 11
+                                    wrapMode: Text.WordWrap
+                                    maximumLineCount: 5
+                                    elide: Text.ElideRight
+                                }
+                            }
+
+                            ScrollView {
+                                id: leftAnswerScroll
+                                anchors.top: selectedPromptBox.bottom
+                                anchors.topMargin: 8
+                                anchors.left: parent.left
+                                anchors.leftMargin: 10
+                                anchors.right: parent.right
+                                anchors.rightMargin: 10
+                                anchors.bottom: parent.bottom
+                                anchors.bottomMargin: 10
+                                clip: true
+
+                                Text {
+                                    width: leftAnswerScroll.availableWidth
+                                    text: card.selectedPromptAnswer
+                                    textFormat: Text.MarkdownText
+                                    wrapMode: Text.WordWrap
+                                    color: "#ddd"
+                                    font.family: card.answerFontFamily
+                                    font.pixelSize: card.answerFontSize
+                                }
                             }
                         }
                     }
-                }
-
                     // ---------- Right: key injections + system + user prompt ----------
                     Item {
                         id: rightPane
-                        visible: card.mainTab === 0
                         anchors.left: leftPane.right
                         anchors.leftMargin: 8
                         anchors.right: parent.right
@@ -1018,8 +1366,7 @@ Component {
                             color: "#202020"
 
                             Row {
-                                anchors.left: parent.left
-                                anchors.leftMargin: 8
+                                anchors.horizontalCenter: parent.horizontalCenter
                                 anchors.verticalCenter: parent.verticalCenter
                                 spacing: 6
 
@@ -1099,7 +1446,7 @@ Component {
                             anchors.top: parent.top
                             anchors.left: parent.left
                             anchors.right: parent.right
-                            height: 92
+                            height: 76
                             radius: 8
                             color: "#202020"
 
@@ -1108,17 +1455,10 @@ Component {
                                 anchors.margins: 6
                                 spacing: 4
 
-                                Text {
-                                    text: "Skills" + (card.selectedSkills.length > 0 ? "  (" + card.selectedSkills.length + " selected)" : "")
-                                    color: "#aaa"
-                                    font.pixelSize: 11
-                                    font.weight: Font.Medium
-                                }
-
                                 ScrollView {
                                     id: skillsScroll
                                     width: parent.width
-                                    height: parent.height - 20
+                                    height: parent.height - 12
                                     clip: true
                                     contentWidth: availableWidth
 
@@ -1127,19 +1467,37 @@ Component {
                                         spacing: 4
 
                                         Repeater {
-                                            model: card.skills
+                                            model: card.filteredComposeSkills()
                                             delegate: Rectangle {
-                                                height: 22
-                                                radius: 11
-                                                width: skillLabel.implicitWidth + 18
-                                                color: card.skillSelected(modelData.name) ? "#3a6df0" : "#2a2a2a"
+                                                property bool skillOn: card.skillSelected(modelData.name)
+                                                height: 26
+                                                radius: 6
+                                                width: Math.max(104, Math.min(152, Math.floor((skillsScroll.availableWidth - 4) / 2)))
+                                                color: skillOn ? card.skillColor(modelData.name) : "#1a1a1a"
+                                                border.width: 1
+                                                border.color: card.skillColor(modelData.name)
 
                                                 Text {
                                                     id: skillLabel
-                                                    anchors.centerIn: parent
-                                                    text: (card.skillSelected(modelData.name) ? "✓ " : "") + modelData.name
-                                                    color: card.skillSelected(modelData.name) ? "#fff" : "#ccc"
+                                                    anchors.left: parent.left
+                                                    anchors.leftMargin: 7
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                    width: parent.width - 30
+                                                    elide: Text.ElideRight
+                                                    text: card.skillEmoji(modelData.name) + " " + modelData.name
+                                                    color: skillOn ? "#fff" : "#ccc"
                                                     font.pixelSize: 10
+                                                }
+
+                                                Text {
+                                                    anchors.right: parent.right
+                                                    anchors.rightMargin: 7
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                    visible: skillOn
+                                                    text: "✓"
+                                                    color: "#fff"
+                                                    font.pixelSize: 11
+                                                    font.bold: true
                                                 }
 
                                                 MouseArea { anchors.fill: parent; onClicked: card.toggleSkill(modelData.name) }
@@ -1153,6 +1511,14 @@ Component {
                                 anchors.centerIn: parent
                                 visible: card.skills.length === 0
                                 text: "No skills found"
+                                color: "#666"
+                                font.pixelSize: 11
+                            }
+
+                            Text {
+                                anchors.centerIn: parent
+                                visible: card.skills.length > 0 && card.filteredComposeSkills().length === 0
+                                text: "No skills match \"" + card.composeSkillSearchText + "\""
                                 color: "#666"
                                 font.pixelSize: 11
                             }
@@ -1304,45 +1670,56 @@ Component {
                                     anchors.margins: 6
                                     spacing: 4
 
-                                    Row {
+                                    Item {
                                         id: userPromptHeader
                                         width: parent.width
                                         height: 22
-                                        spacing: 6
 
-                                        Text {
+                                        Row {
+                                            anchors.left: parent.left
                                             anchors.verticalCenter: parent.verticalCenter
-                                            text: "User Prompt"
-                                            color: "#aaa"
-                                            font.pixelSize: 11
-                                            font.weight: Font.Medium
-                                        }
+                                            spacing: 6
 
-                                        Rectangle {
-                                            height: 20
-                                            radius: 4
-                                            color: card.libPickerOpen ? "#3a6df0" : "#2a2a2a"
-                                            width: libChipLabel.implicitWidth + 10
                                             Text {
-                                                id: libChipLabel
-                                                anchors.centerIn: parent
-                                                text: "Library"
-                                                color: card.libPickerOpen ? "#fff" : "#ccc"
-                                                font.pixelSize: 10
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                text: "User Prompt"
+                                                color: "#aaa"
+                                                font.pixelSize: 11
+                                                font.weight: Font.Medium
                                             }
-                                            MouseArea { anchors.fill: parent; onClicked: card.libPickerOpen = !card.libPickerOpen }
+
+                                            Rectangle {
+                                                height: 20
+                                                radius: 4
+                                                color: card.libPickerOpen ? "#3a6df0" : "#2a2a2a"
+                                                width: libChipLabel.implicitWidth + 10
+                                                Text {
+                                                    id: libChipLabel
+                                                    anchors.centerIn: parent
+                                                    text: "Library"
+                                                    color: card.libPickerOpen ? "#fff" : "#ccc"
+                                                    font.pixelSize: 10
+                                                }
+                                                MouseArea { anchors.fill: parent; onClicked: card.libPickerOpen = !card.libPickerOpen }
+                                            }
                                         }
 
-                                        Button {
-                                            text: "Copy"
-                                            bordered: true
-                                            onClicked: {
-                                                Quickshell.clipboardText = card.draftText + (card.systemPromptText !== "" ? ("\n\n[System]: " + card.systemPromptText) : "")
-                                                card.setStatus("Copied system + user prompt")
+                                        Row {
+                                            anchors.right: parent.right
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            spacing: 6
+
+                                            Button {
+                                                text: "Copy"
+                                                bordered: true
+                                                onClicked: {
+                                                    Quickshell.clipboardText = card.draftText + (card.systemPromptText !== "" ? ("\n\n[System]: " + card.systemPromptText) : "")
+                                                    card.setStatus("Copied system + user prompt")
+                                                }
                                             }
+                                            Button { text: "Save to Library"; bordered: true; onClicked: card.savePrompt() }
+                                            Button { text: "Clear"; bordered: true; onClicked: card.draftText = "" }
                                         }
-                                        Button { text: "Save to Library"; bordered: true; onClicked: card.savePrompt() }
-                                        Button { text: "Clear"; bordered: true; onClicked: card.draftText = "" }
                                     }
 
                                     Rectangle {
@@ -1601,6 +1978,207 @@ Component {
                             : "No library items match the current filters"
                         color: "#666"
                         font.pixelSize: 13
+                    }
+                }
+            }
+
+            Component {
+                id: skillsEditView
+
+                Item {
+                    anchors.fill: parent
+
+                    Row {
+                        id: skillsToolbar
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        height: 26
+                        spacing: 8
+
+                        Text {
+                            text: "Skill Appearance"
+                            color: "#ccc"
+                            font.pixelSize: 14
+                            height: 26
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "pick an emoji + colour — they decorate the toggle chips in the compose pane"
+                            color: "#666"
+                            font.pixelSize: 11
+                        }
+                    }
+
+                    ScrollView {
+                        id: skillsEditScroll
+                        anchors.top: skillsToolbar.bottom
+                        anchors.topMargin: 8
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        clip: true
+                        contentWidth: availableWidth
+
+                        Flow {
+                            id: skillsEditFlow
+                            width: skillsEditScroll.availableWidth
+                            spacing: 6
+
+                            Repeater {
+                                model: card.filteredSkills()
+
+                                delegate: Rectangle {
+                                    property string skillName: modelData.name
+                                    width: Math.floor((skillsEditScroll.availableWidth - 6) / 2)
+                                    height: 92
+                                    radius: 8
+                                    color: "#202020"
+                                    border.width: 1
+                                    border.color: "#2e2e2e"
+
+                                    Rectangle {
+                                        id: previewBox
+                                        anchors.left: parent.left
+                                        anchors.leftMargin: 8
+                                        anchors.top: parent.top
+                                        anchors.topMargin: 8
+                                        width: 54
+                                        height: 54
+                                        radius: 8
+                                        color: card.skillSelected(skillName) ? card.skillColor(skillName) : "#1a1a1a"
+                                        border.width: 1
+                                        border.color: card.skillColor(skillName)
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: card.skillEmoji(skillName)
+                                            font.pixelSize: 24
+                                        }
+                                    }
+
+                                    Column {
+                                        id: skillEditCol
+                                        anchors.left: previewBox.right
+                                        anchors.leftMargin: 10
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: 8
+                                        anchors.top: parent.top
+                                        anchors.topMargin: 8
+                                        spacing: 5
+
+                                        Text {
+                                            width: parent.width
+                                            elide: Text.ElideRight
+                                            horizontalAlignment: Text.AlignHCenter
+                                            text: skillName
+                                            color: "#eee"
+                                            font.pixelSize: 13
+                                            font.family: "JetBrains Mono"
+                                        }
+
+                                        Text {
+                                            width: parent.width
+                                            elide: Text.ElideRight
+                                            text: (modelData.description || "").replace(/^> /, "")
+                                            color: "#777"
+                                            font.pixelSize: 10
+                                        }
+
+                                        Flow {
+                                            width: parent.width
+                                            spacing: 3
+
+                                            Repeater {
+                                                model: card.emojiPalette
+                                                delegate: Rectangle {
+                                                    width: 18
+                                                    height: 18
+                                                    radius: 4
+                                                    color: card.skillStyle(skillName).emoji === modelData ? card.skillColor(skillName) : "#1a1a1a"
+                                                    border.width: 1
+                                                    border.color: card.skillStyle(skillName).emoji === modelData ? "#fff" : "#333"
+                                                    Text { anchors.centerIn: parent; text: modelData; font.pixelSize: 10 }
+                                                    MouseArea { anchors.fill: parent; onClicked: card.setSkillStyle(skillName, "emoji", modelData) }
+                                                }
+                                            }
+
+                                            TextField {
+                                                width: 64
+                                                height: 18
+                                                placeholderText: "emoji"
+                                                text: card.skillStyle(skillName).emoji || ""
+                                                onTextChanged: {
+                                                    if (text !== (card.skillStyle(skillName).emoji || ""))
+                                                        card.setSkillStyle(skillName, "emoji", text)
+                                                }
+                                                background: Rectangle { color: "#1a1a1a"; radius: 4; border.color: "#333"; border.width: 1 }
+                                                color: "white"
+                                                font.pixelSize: 11
+                                                horizontalAlignment: TextInput.AlignHCenter
+                                            }
+                                        }
+
+                                        Flow {
+                                            width: parent.width
+                                            spacing: 3
+
+                                            Repeater {
+                                                model: card.colorPalette
+                                                delegate: Rectangle {
+                                                    width: 18
+                                                    height: 16
+                                                    radius: 4
+                                                    color: modelData
+                                                    border.width: card.skillStyle(skillName).color === modelData ? 2 : 1
+                                                    border.color: card.skillStyle(skillName).color === modelData ? "#fff" : "#000"
+                                                    MouseArea { anchors.fill: parent; onClicked: card.setSkillStyle(skillName, "color", modelData) }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Text {
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: 8
+                                        anchors.top: parent.top
+                                        anchors.topMargin: 8
+                                        visible: card.skillStyle(skillName).emoji !== undefined || card.skillStyle(skillName).color !== undefined
+                                        text: "reset"
+                                        color: "#e05555"
+                                        font.pixelSize: 10
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            anchors.margins: -4
+                                            onClicked: {
+                                                var next = {}
+                                                for (var k in card.skillStyles) {
+                                                    if (k !== skillName) next[k] = card.skillStyles[k]
+                                                }
+                                                card.skillStyles = next
+                                                skillStylesView.setText(JSON.stringify(next, null, 2))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            Text {
+                                visible: card.skills.length === 0
+                                text: "No skills found"
+                                color: "#666"
+                                font.pixelSize: 11
+                            }
+
+                            Text {
+                                visible: card.skills.length > 0 && card.filteredSkills().length === 0
+                                text: "No skills match \"" + card.skillSearchText + "\""
+                                color: "#666"
+                                font.pixelSize: 11
+                            }
+                        }
                     }
                 }
             }
