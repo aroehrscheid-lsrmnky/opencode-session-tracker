@@ -1908,13 +1908,6 @@ Item {
                                         }
                                     }
 
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        onClicked: {
-                                            card.insertIntoDraft(modelData.text || "")
-                                            card.setStatus("Inserted into prompt draft")
-                                        }
-                                    }
                                 }
                             }
                         }
