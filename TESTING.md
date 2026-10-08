@@ -81,6 +81,24 @@ cat ~/.config/omarchy/plugins/io.github.aroehrscheid-lsrmnky.opencode-sessions/p
 qs log -p "$OMARCHY_PATH/shell" --tail 100
 ```
 
+## Panel shows the old UI after editing Panel.qml
+
+`rescanPlugins` reloads the plugin and closes the panels, but the Quickshell
+disk cache can keep serving the compiled component from before the edit — the
+new strings never appear, no load error is logged, and no `.qmlc` is rewritten.
+
+```bash
+# what is running is stale bytecode, not the file:
+grep -rl $'S\x00e\x00a\x00r\x00c\x00h\x00 \x00l\x00i\x00b' ~/.cache/quickshell/qmlcache && echo "stale"
+
+rm -f ~/.cache/quickshell/qmlcache/*.qmlc
+omarchy-restart-shell
+omarchy-shell shell summon "io.github.aroehrscheid-lsrmnky.opencode-sessions" '{}'
+```
+
+After the restart the cache is rebuilt from the current file and the edit shows.
+Same fix applies when a reload log line fires but the UI does not change.
+
 ## Clipboard verification
 1. Open panel, select a prompt, press Copy.
 2. Paste into any editor — text must match the prompt.
