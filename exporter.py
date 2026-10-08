@@ -12,7 +12,7 @@ conn.row_factory = sqlite3.Row
 cur = conn.cursor()
 
 cur.execute("""
-SELECT s.id, s.title, s.time_updated, p.name as project_name
+SELECT s.id, s.title, s.time_updated, s.directory as directory, p.name as project_name
 FROM session s
 LEFT JOIN project p ON s.project_id = p.id
 ORDER BY s.time_updated DESC
@@ -91,6 +91,7 @@ for row in cur.fetchall():
         "id": sid,
         "title": row["title"] or "Untitled",
         "project": row["project_name"] or "",
+        "cwd": row["directory"] or os.path.expanduser("~"),
         "time_updated": row["time_updated"],
         "recent_prompts": prompts
     })
