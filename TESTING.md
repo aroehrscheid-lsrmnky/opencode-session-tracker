@@ -45,7 +45,12 @@ cat ~/.cache/opencode-sessions/sessions.json | jq '.sessions | length'
 - [ ] Record checkbox appends a training row (Dataset tab count +1)
 
 ### Library tab (Ctrl+3)
-- [ ] Items list; tag chips filter; click an item → inserts into the Main-tab draft (status confirms)
+- [ ] Cards render 2 per row; edit a card's text → border turns blue, **Save** persists to `prompts.json` (status "Prompt updated") and re-derives its `#tags`
+- [ ] **Revert** restores the original text and clears the blue border
+- [ ] **Delete** asks "Confirm?", a second click removes the card (auto-disarms after 4 s); the first click alone does nothing
+- [ ] Bottom field: type + **Add** (or `Enter`) → status "Added to library", field clears, new card appears and survives a panel reload
+- [ ] Tag chips filter the grid; empty filter shows "No library items match…"
+- [ ] Clicking a card does **not** insert into the draft (use Main tab's Library chip)
 - [ ] Export JSON / Export MD create `/tmp/opencode-library-*.{json,md}`
 - [ ] Import merges a previously exported JSON (dedup by id)
 

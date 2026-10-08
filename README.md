@@ -20,7 +20,7 @@ A Quickshell/Omarchy bar-widget + panel to track OpenCode sessions, browse promp
 |----------|-----|-------------|
 | `Ctrl+1` | Main ▸ Sessions | Session chips, recent prompts, workbench (compose/send) |
 | `Ctrl+2` | Main ▸ Answers | Markdown answer view, navigation, font controls |
-| `Ctrl+3` | Library | Saved prompts with tag filter, export/import |
+| `Ctrl+3` | Library | Editable 2-per-row prompt cards + tag filter, add/export/import |
 | `Ctrl+4` | Skills | Skill list + per-skill appearance editing |
 | `Ctrl+5` | Stats | Session/library/prompt counts |
 | `Ctrl+6` | Dataset | Training records + ShareGPT/Alpaca export |
