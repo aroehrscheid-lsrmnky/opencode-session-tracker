@@ -45,7 +45,7 @@ cat ~/.cache/opencode-sessions/sessions.json | jq '.sessions | length'
 - [ ] Record checkbox appends a training row (Dataset tab count +1)
 
 ### Library tab (Ctrl+3)
-- [ ] Items list; tag chips filter; search filters (items are display-only)
+- [ ] Items list; tag chips filter; click an item → inserts into the Main-tab draft (status confirms)
 - [ ] Export JSON / Export MD create `/tmp/opencode-library-*.{json,md}`
 - [ ] Import merges a previously exported JSON (dedup by id)
 
@@ -63,7 +63,7 @@ cat ~/.cache/opencode-sessions/sessions.json | jq '.sessions | length'
 
 ### Shortcuts
 - [ ] `Esc` closes panel
-- [ ] `Ctrl+F` focuses search (Main: prompt search, Library: library search)
+- [ ] `Ctrl+F` focuses the prompt search (Main tab)
 - [ ] `Ctrl+S` save, `Ctrl+W` clear draft, `Ctrl+E` back to Sessions
 - [ ] `Ctrl+1…6` switch tabs
 - [ ] `Ctrl+Return` send

@@ -29,7 +29,7 @@ A Quickshell/Omarchy bar-widget + panel to track OpenCode sessions, browse promp
 | Key | Action |
 |-----|--------|
 | `Esc` | Close panel |
-| `Ctrl+F` | Focus search |
+| `Ctrl+F` | Focus the prompt search |
 | `Ctrl+S` | Save draft to library |
 | `Ctrl+W` | Clear draft |
 | `Ctrl+E` | Back to Sessions |
