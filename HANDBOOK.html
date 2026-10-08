@@ -387,9 +387,7 @@ systemctl --user list-timers opencode-sessions-exporter.timer   # NEXT/LAST shou
   <tr><td class="file">plugin/scripts/export_dataset.py</td><td><code>training.jsonl</code> → ShareGPT + Alpaca files, prints a summary.</td></tr>
   <tr><td class="file">exporter.py</td><td>101 lines — OpenCode SQLite → <code>sessions.json</code>.</td></tr>
   <tr><td class="file">install.sh</td><td><code>install</code> / <code>update</code>: copy, protect <code>prompts.json</code>, validate, rescan.</td></tr>
-  <tr><td class="file">index.html</td><td>Original project-plan page (kept for history; this handbook is the current doc).</td></tr>
-  <tr><td class="file">README.md · MANUAL.md · TESTING.md · ROADMAP.md</td><td>Shorter companions — some predate the five-tab layout (see §12).</td></tr>
-  <tr><td class="file">ARCHITECTURE.md · DATA_SCHEMA.md · DESIGN.md · DEV_SETUP.md · SOFTWARE_STACK.md</td><td>Early design notes.</td></tr>
+  <tr><td class="file">README.md · TESTING.md · ROADMAP.md</td><td>Short overview, test checklist, phase list (reconciled with the five-tab layout).</td></tr>
 </table>
 
 <h3>Runtime files</h3>
@@ -712,18 +710,14 @@ journalctl --user --since '-15 sec' | grep -i 'Panel.qml'</code></pre>
   <li><b>Send live-test (attach)</b> was exercised end-to-end: <code>opencode --port 4096</code> TUI in tmux + panel script → <code>MODE: attach</code>, prompt and reply rendered live in the TUI; local fallback also verified with the server down. <b>BODI clean-up live-test</b> was built and dry-run but not yet exercised end-to-end against a long-running session.</li>
   <li>Planned: a <code>bodi-decide</code> MCP wrapper around <code>POST /1/systemone</code> (decision/rating adapter) to replace heuristic ratings — request schema still needed from the BODI host operator.</li>
   <li><code>bordered: true</code> on <code>Button</code> is a no-op (qmllint <code>missing-property</code>); a styled custom Button component would fix the toolbar look.</li>
-  <li><code>README.md</code>/<code>ROADMAP.md</code> still describe the older 4-view/day-filter design — this handbook reflects the current five-tab build; reconcile them when you next touch the docs.</li>
-  <li><code>__pycache__/</code> directories are untracked; a <code>.gitignore</code> would keep them out of <code>git status</code>.</li>
+  <li><code>README.md</code>/<code>TESTING.md</code> were reconciled with the five-tab layout during doc consolidation; <code>ROADMAP.md</code> still lists only pre-workbench phases.</li>
 </ul>
 
 <h3>Related documents in this repo</h3>
 <ul>
   <li><a href="README.md">README.md</a> — short summary + install one-liners</li>
-  <li><a href="MANUAL.md">MANUAL.md</a> — manual testing checklist</li>
-  <li><a href="TESTING.md">TESTING.md</a> — end-to-end test steps</li>
+  <li><a href="TESTING.md">TESTING.md</a> — manual test checklist</li>
   <li><a href="ROADMAP.md">ROADMAP.md</a> — phases and milestones</li>
-  <li><a href="ARCHITECTURE.md">ARCHITECTURE.md</a> · <a href="DATA_SCHEMA.md">DATA_SCHEMA.md</a> · <a href="DESIGN.md">DESIGN.md</a> · <a href="DEV_SETUP.md">DEV_SETUP.md</a> · <a href="SOFTWARE_STACK.md">SOFTWARE_STACK.md</a> — early design notes</li>
-  <li><a href="index.html">index.html</a> — original project-plan page</li>
 </ul>
 
 <p class="muted" style="margin-top:40px;border-top:1px solid var(--line);padding-top:16px">OpenCode Session Tracker v0.1.0 · MIT · handbook generated for handoff — first-time users and developers recreating the build.</p>
