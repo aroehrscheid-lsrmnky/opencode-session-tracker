@@ -55,7 +55,9 @@ Item {
             property bool bookmarkFilter: false
             property bool libPickerOpen: false
             property int viewMode: 0
-            property string searchText: ""
+            property string promptSearchText: ""
+            property string librarySearchText: ""
+            property var promptSearchInput: null
             property string sessionSearchText: ""
             property int mainTab: 0
             property string tagFilter: ""
@@ -270,7 +272,7 @@ Item {
             }
 
             function filteredPrompts() {
-                var q = searchText.toLowerCase().trim()
+                var q = promptSearchText.toLowerCase().trim()
                 var entries = []
                 if (q === "") {
                     entries = sessionEntries(activeSessionIndex)
@@ -294,7 +296,7 @@ Item {
             }
 
             function filteredLibrary() {
-                var q = searchText.toLowerCase()
+                var q = librarySearchText.toLowerCase()
                 return library.filter(p => {
                     var txt = String(p.text || "").toLowerCase().includes(q)
                     var tag = !tagFilter || (p.tags || []).indexOf(tagFilter) !== -1
@@ -649,7 +651,7 @@ Item {
             }
 
             Shortcut { sequence: "Escape"; onActivated: root.close() }
-            Shortcut { sequence: "Ctrl+F"; onActivated: { if (card.viewMode === 1) librarySearchField.forceActiveFocus(); else if (card.viewMode === 0) searchField.forceActiveFocus() } }
+            Shortcut { sequence: "Ctrl+F"; onActivated: { if (card.viewMode === 1) librarySearchField.forceActiveFocus(); else if (card.viewMode === 0 && card.promptSearchInput) card.promptSearchInput.forceActiveFocus() } }
             Shortcut { sequence: "Ctrl+W"; onActivated: card.draftText = "" }
             Shortcut { sequence: "Ctrl+S"; onActivated: card.savePrompt() }
             Shortcut { sequence: "Ctrl+E"; onActivated: card.showEditor() }
@@ -716,7 +718,7 @@ Item {
                         width: 240
                         height: 28
                         placeholderText: "Search library..."
-                        onTextChanged: card.searchText = text
+                        onTextChanged: card.librarySearchText = text
                         background: Rectangle { color: "#252525"; radius: 6 }
                         color: "white"
                     }
@@ -1068,7 +1070,8 @@ Component {
                                     width: Math.min(200, Math.max(110, promptsHeader.width - recentLabel.width - promptsHeader.spacing * 2))
                                     height: 22
                                     placeholderText: "Search all sessions... (Ctrl+F)"
-                                    onTextChanged: card.searchText = text
+                                    onTextChanged: card.promptSearchText = text
+                                    Component.onCompleted: card.promptSearchInput = searchField
                                     background: Rectangle { color: "#1e1e1e"; radius: 6 }
                                     color: "white"
                                     font.pixelSize: 11
@@ -1305,12 +1308,12 @@ Component {
                                 anchors.leftMargin: 10
                                 anchors.right: parent.right
                                 anchors.rightMargin: 10
-                                height: Math.min(selectedPromptText.implicitHeight + 12, 88)
+                                height: Math.min(selectedAnswerText.implicitHeight + 12, 88)
                                 color: "#1e1e1e"
                                 radius: 6
 
                                 Text {
-                                    id: selectedPromptText
+                                    id: selectedAnswerText
                                     anchors.fill: parent
                                     anchors.margins: 6
                                     text: card.selectedPromptText
