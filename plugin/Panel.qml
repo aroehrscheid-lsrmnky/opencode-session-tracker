@@ -2,7 +2,6 @@ import QtQuick
 import Quickshell.Wayland
 import QtQuick.Controls
 import Quickshell
-import Quickshell.Widgets
 import Quickshell.Io
 import qs.Ui
 
@@ -20,7 +19,6 @@ Item {
     }
 
     PanelWindow {
-        id: panelWin
         visible: root.opened
         WlrLayershell.namespace: "opencode-sessions-panel"
         WlrLayershell.layer: WlrLayer.Overlay
@@ -42,11 +40,11 @@ Item {
             color: "#1e1e1e"
             anchors.centerIn: parent
 
-            property string home: Quickshell.env("HOME")
-            property string pluginDir: home + "/.config/omarchy/plugins/io.github.aroehrscheid-lsrmnky.opencode-sessions"
-            property string cachePath: home + "/.cache/opencode-sessions/sessions.json"
-            property string bookmarksPath: home + "/.cache/opencode-sessions/bookmarks.json"
-            property string libraryPath: pluginDir + "/prompts.json"
+            readonly property string home: Quickshell.env("HOME")
+            readonly property string pluginDir: home + "/.config/omarchy/plugins/io.github.aroehrscheid-lsrmnky.opencode-sessions"
+            readonly property string cachePath: home + "/.cache/opencode-sessions/sessions.json"
+            readonly property string bookmarksPath: home + "/.cache/opencode-sessions/bookmarks.json"
+            readonly property string libraryPath: pluginDir + "/prompts.json"
             property var sessions: []
             property int activeSessionIndex: 0
             property var library: []
@@ -63,7 +61,6 @@ Item {
             property string tagFilter: ""
             property string draftText: ""
             property string systemPromptText: ""
-            property string libDraft: ""
             property string statusMsg: ""
             property int answerFontSize: 13
             property string answerFontFamily: "JetBrains Mono"
@@ -79,8 +76,8 @@ Item {
             property var skillStyles: ({})
             property string skillSearchText: ""
             property string composeSkillSearchText: ""
-            property var emojiPalette: ["💡", "🛠️", "⚡", "🧩", "🐛", "🎨", "📦", "🗂️", "🔧", "🧭", "🧪", "📐", "🚀", "🔒", "🤖", "🌱", "🔍", "📚", "✅", "⚙️", "🎯", "🔥"]
-            property var colorPalette: ["#3a6df0", "#2f9e6f", "#c46b2f", "#8e44ad", "#16a2b8", "#c0392b", "#b8952f", "#e05555", "#555f6e", "#2fa84f", "#1f6feb", "#d29922", "#db6d28", "#a371f7", "#f778ba", "#39c5cf", "#56d364", "#ff7b72", "#8b949e", "#7ee787", "#ffa657", "#d2a8ff", "#e85d4a", "#4a9eda"]
+            readonly property var emojiPalette: ["💡", "🛠️", "⚡", "🧩", "🐛", "🎨", "📦", "🗂️", "🔧", "🧭", "🧪", "📐", "🚀", "🔒", "🤖", "🌱", "🔍", "📚", "✅", "⚙️", "🎯", "🔥"]
+            readonly property var colorPalette: ["#3a6df0", "#2f9e6f", "#c46b2f", "#8e44ad", "#16a2b8", "#c0392b", "#b8952f", "#e05555", "#555f6e", "#2fa84f", "#1f6feb", "#d29922", "#db6d28", "#a371f7", "#f778ba", "#39c5cf", "#56d364", "#ff7b72", "#8b949e", "#7ee787", "#ffa657", "#d2a8ff", "#e85d4a", "#4a9eda"]
             property var selectedSkills: []
             property bool cleanupOn: false
             property bool recordOn: false
@@ -88,11 +85,11 @@ Item {
             property bool sending: false
             property int trainingCount: 0
             property string trainingText: ""
-            property string skillsPath: home + "/.cache/opencode-sessions/skills.json"
-            property string skillStylesPath: home + "/.cache/opencode-sessions/skill_styles.json"
-            property string trainingPath: home + "/.cache/opencode-sessions/training.jsonl"
-            property string exporterPath: home + "/documents/opencode-session-tracker/exporter.py"
-            property var keyInjections: [
+            readonly property string skillsPath: home + "/.cache/opencode-sessions/skills.json"
+            readonly property string skillStylesPath: home + "/.cache/opencode-sessions/skill_styles.json"
+            readonly property string trainingPath: home + "/.cache/opencode-sessions/training.jsonl"
+            readonly property string exporterPath: home + "/documents/opencode-session-tracker/exporter.py"
+            readonly property var keyInjections: [
                 {label: "Code Review", text: "Review this code for bugs, performance issues, and best practices. Be thorough but concise."},
                 {label: "Debug Helper", text: "Help me debug this issue. Ask clarifying questions if needed, then provide step-by-step debugging approach."},
                 {label: "Doc Writer", text: "Write clear documentation for this code/function. Include purpose, parameters, return values, and examples."},
@@ -418,7 +415,7 @@ Item {
                 }
                 sendJobView.setText(JSON.stringify(job))
                 sendProc.jobPath = home + "/.cache/opencode-sessions/send_job.json"
-                setStatus(sending ? "Sending…" : "Sending…")
+                setStatus("Sending…")
                 sendProc.running = true
             }
 
@@ -682,12 +679,10 @@ Item {
                 }
 
                 Item {
-                    id: topTabRow
                     width: headerCol.width
                     height: 28
 
                     Row {
-                        id: topTabs
                         anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: 8
@@ -725,7 +720,6 @@ Item {
                 }
 
                 Item {
-                    id: subTabRow
                     visible: card.viewMode === 0 || card.viewMode === 2
                     width: headerCol.width
                     height: 24
@@ -739,7 +733,6 @@ Item {
                     }
 
                     Row {
-                        id: subTabs
                         visible: card.viewMode === 0
                         anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
@@ -808,7 +801,6 @@ Item {
                     }
 
                     TextField {
-                        id: sessionSearchField
                         visible: card.viewMode === 0
                         anchors.right: leftColEdge.right
                         anchors.rightMargin: 10
@@ -823,7 +815,6 @@ Item {
                     }
 
                     TextField {
-                        id: skillSearchField
                         visible: card.viewMode === 2
                         anchors.right: leftColEdge.right
                         anchors.rightMargin: 10
@@ -838,7 +829,6 @@ Item {
                     }
 
                     TextField {
-                        id: composeSkillSearchField
                         visible: card.viewMode === 0
                         anchors.right: parent.right
                         anchors.rightMargin: 6
@@ -902,7 +892,7 @@ Item {
                 font.pixelSize: 12
             }
 
-Component {
+                Component {
                 id: sessionsView
 
                 Item {
@@ -977,7 +967,6 @@ Component {
                                 contentWidth: availableWidth
 
                                 Flow {
-                                    id: sessionFlow
                                     width: sessionChipsScroll.availableWidth
                                     spacing: 4
 
@@ -1032,7 +1021,6 @@ Component {
 
                         // Recent Prompts navigation (below sessions)
                         Rectangle {
-                            id: promptListPane
                             visible: !(card.mainTab === 1 && card.selectedPromptIndex >= 0)
                             anchors.top: card.sessionsCollapsed ? collapsedToggle.bottom : sessionChipsBox.bottom
                             anchors.topMargin: 6
@@ -1118,7 +1106,6 @@ Component {
                                             }
 
                                             Rectangle {
-                                                id: promptCard
                                                 property bool hovered: promptMa.containsMouse || copyMa.containsMouse
                                                 width: parent.width
                                                 height: promptText.implicitHeight + 12
@@ -1150,7 +1137,6 @@ Component {
                                                 }
 
                                                 Rectangle {
-                                                    id: copyBtn
                                                     anchors.top: parent.top
                                                     anchors.right: parent.right
                                                     anchors.topMargin: 4
@@ -1194,7 +1180,6 @@ Component {
 
                         // ---------- Answer (left column, replaces the prompt list) ----------
                         Rectangle {
-                            id: leftAnswerPane
                             visible: card.mainTab === 1 && card.selectedPromptIndex >= 0
                             anchors.top: card.sessionsCollapsed ? collapsedToggle.bottom : sessionChipsBox.bottom
                             anchors.topMargin: 6
@@ -1216,7 +1201,6 @@ Component {
                             }
 
                             Row {
-                                id: answerNav
                                 anchors.right: parent.right
                                 anchors.rightMargin: 10
                                 anchors.verticalCenter: answerTitle.verticalCenter
@@ -1351,7 +1335,6 @@ Component {
                     }
                     // ---------- Right: key injections + system + user prompt ----------
                     Item {
-                        id: rightPane
                         anchors.left: leftPane.right
                         anchors.leftMargin: 8
                         anchors.right: parent.right
@@ -1374,7 +1357,6 @@ Component {
                                 spacing: 6
 
                                 Rectangle {
-                                    id: agentSeg
                                     width: 108
                                     height: 24
                                     radius: 6
@@ -1481,7 +1463,6 @@ Component {
                                                 border.color: card.skillColor(modelData.name)
 
                                                 Text {
-                                                    id: skillLabel
                                                     anchors.left: parent.left
                                                     anchors.leftMargin: 7
                                                     anchors.verticalCenter: parent.verticalCenter
@@ -1655,7 +1636,6 @@ Component {
 
                         // User Prompt (with library)
                         Item {
-                            id: userPromptPane
                             anchors.top: systemPromptPane.bottom
                             anchors.topMargin: 6
                             anchors.left: parent.left
@@ -1674,7 +1654,6 @@ Component {
                                     spacing: 4
 
                                     Item {
-                                        id: userPromptHeader
                                         width: parent.width
                                         height: 22
 
@@ -1792,7 +1771,6 @@ Component {
                                         clip: true
 
                                         TextArea {
-                                            id: userEditor
                                             width: promptEditorScroll.availableWidth
                                             wrapMode: TextArea.Wrap
                                             background: Item {}
@@ -1869,46 +1847,12 @@ Component {
                         }
                     }
 
-                    TextArea {
-                        id: editorLib
-                        anchors.left: parent.left
-                        anchors.leftMargin: 10
-                        anchors.right: parent.right
-                        anchors.rightMargin: 10
-                        anchors.bottom: parent.bottom
-                        anchors.bottomMargin: 10
-                        height: 110
-                        text: card.libDraft
-                        onTextChanged: {
-                            if (text !== card.libDraft) card.libDraft = text
-                        }
-                        placeholderText: "Click a library item to load it here"
-                        placeholderTextColor: "#888"
-                        color: "white"
-                        wrapMode: TextArea.Wrap
-                        selectByMouse: true
-                        background: Rectangle { color: "#1e1e1e"; radius: 6 }
-                    }
-
-                    // Fallback placeholder (native one sometimes doesn't render)
-                    Text {
-                        anchors.top: editorLib.top
-                        anchors.topMargin: 8
-                        anchors.left: editorLib.left
-                        anchors.leftMargin: 10
-                        visible: editorLib.text === ""
-                        text: "Click a library item to load it here"
-                        color: "#888"
-                        font.pixelSize: 12
-                        z: editorLib.z + 1
-                    }
-
                     ScrollView {
                         id: libScroll
                         anchors.top: tagFlow.bottom
                         anchors.topMargin: 8
-                        anchors.bottom: editorLib.top
-                        anchors.bottomMargin: 8
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 10
                         anchors.left: parent.left
                         anchors.leftMargin: 10
                         anchors.right: parent.right
@@ -1966,7 +1910,10 @@ Component {
 
                                     MouseArea {
                                         anchors.fill: parent
-                                        onClicked: card.libDraft = modelData.text
+                                        onClicked: {
+                                            card.insertIntoDraft(modelData.text || "")
+                                            card.setStatus("Inserted into prompt draft")
+                                        }
                                     }
                                 }
                             }
@@ -2026,7 +1973,6 @@ Component {
                         contentWidth: availableWidth
 
                         Flow {
-                            id: skillsEditFlow
                             width: skillsEditScroll.availableWidth
                             spacing: 6
 
@@ -2063,7 +2009,6 @@ Component {
                                     }
 
                                     Column {
-                                        id: skillEditCol
                                         anchors.left: previewBox.right
                                         anchors.leftMargin: 10
                                         anchors.right: parent.right
