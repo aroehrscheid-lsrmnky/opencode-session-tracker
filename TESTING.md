@@ -28,6 +28,16 @@ python3 ~/documents/opencode-session-tracker/plugin/scripts/export_directives.py
 python3 ~/documents/opencode-session-tracker/plugin/scripts/import_directives.py /tmp/opencode-directives-*.json
 ```
 
+## Store location (regression)
+User stores must live **outside** the plugin dir, or Omarchy's plugin watcher
+(`inotifywait -r` on `~/.config/omarchy/plugins/`) hot-reloads the plugin and
+closes the panel on every write.
+
+- [ ] `~/.config/opencode-sessions/` holds `prompts.json`, `directives.json`, `bookmarks.json`, `skill_styles.json`, `training.jsonl`
+- [ ] No `prompts.json` / `directives.json` is written back into the plugin dir at runtime
+- [ ] Toggling a directive or saving to the library **keeps the panel open**
+- [ ] Writing to `~/.config/opencode-sessions/` produces no `Local plugin changed, reloading:` in `journalctl -t omarchy-shell`; writing into the plugin dir does (control)
+
 ## Checklist
 
 ### Main tab (Ctrl+1 Sessions / Ctrl+2 Answers)
@@ -96,8 +106,8 @@ python3 ~/documents/opencode-session-tracker/plugin/scripts/import_directives.py
 ```bash
 systemctl --user status opencode-sessions-exporter.timer
 cat ~/.cache/opencode-sessions/sessions.json | jq '.sessions | length'
-cat ~/.config/omarchy/plugins/io.github.aroehrscheid-lsrmnky.opencode-sessions/prompts.json | jq '.library | length'
-cat ~/.config/omarchy/plugins/io.github.aroehrscheid-lsrmnky.opencode-sessions/directives.json | jq '.directives | length'
+cat ~/.config/opencode-sessions/prompts.json | jq '.library | length'
+cat ~/.config/opencode-sessions/directives.json | jq '.directives | length'
 qs log -p "$OMARCHY_PATH/shell" --tail 100
 ```
 

@@ -67,7 +67,7 @@ def record(job, session, cwd, agent):
             "raw_payload": job.get("raw_payload", ""),
             "final_payload": job.get("payload", ""),
         }
-        path = os.path.join(HOME, ".cache/opencode-sessions/training.jsonl")
+        path = os.path.join(HOME, ".config/opencode-sessions/training.jsonl")
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")

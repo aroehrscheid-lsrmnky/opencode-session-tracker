@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import json, sys, os, re
 from datetime import datetime
-path = os.path.expanduser("~/.config/omarchy/plugins/io.github.aroehrscheid-lsrmnky.opencode-sessions/directives.json")
+path = os.path.expanduser("~/.config/opencode-sessions/directives.json")
 title = sys.argv[1] if len(sys.argv) > 1 else ""
 text = sys.argv[2] if len(sys.argv) > 2 else ""
 if not title.strip() and not text.strip():
@@ -25,5 +25,6 @@ data["directives"].append({
     "created_at": datetime.utcnow().isoformat(),
     "tags": tags,
 })
+os.makedirs(os.path.dirname(path), exist_ok=True)
 with open(path, "w") as f:
     json.dump(data, f, indent=2)

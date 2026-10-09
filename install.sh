@@ -12,25 +12,34 @@ fi
 
 PLUGIN_ID=$(python3 -c "import json; print(json.load(open('$MANIFEST'))['id'])")
 PLUGIN_INSTALL_DIR="$HOME/.config/omarchy/plugins/$PLUGIN_ID"
+DATA_DIR="$HOME/.config/opencode-sessions"
+CACHE_DIR="$HOME/.cache/opencode-sessions"
+
+migrate_store() {
+  # Move a legacy user store into DATA_DIR when the target is still absent.
+  local name="$1" legacy="$2"
+  if [ -f "$DATA_DIR/$name" ]; then
+    return
+  fi
+  if [ -f "$legacy" ]; then
+    cp "$legacy" "$DATA_DIR/$name"
+  fi
+}
 
 copy_plugin() {
-  # Never clobber the user's stores with the repo's seed copies.
-  local backup_prompts="" backup_directives=""
-  if [ -f "$PLUGIN_INSTALL_DIR/prompts.json" ]; then
-    backup_prompts="$(mktemp)"
-    cp "$PLUGIN_INSTALL_DIR/prompts.json" "$backup_prompts"
-  fi
-  if [ -f "$PLUGIN_INSTALL_DIR/directives.json" ]; then
-    backup_directives="$(mktemp)"
-    cp "$PLUGIN_INSTALL_DIR/directives.json" "$backup_directives"
-  fi
+  mkdir -p "$DATA_DIR"
+  # User stores live OUTSIDE the plugin dir (which Omarchy watches with inotify
+  # and hot-reloads on any write). Migrate any legacy copies before reseeding.
+  migrate_store prompts.json "$PLUGIN_INSTALL_DIR/prompts.json"
+  migrate_store directives.json "$PLUGIN_INSTALL_DIR/directives.json"
+  migrate_store bookmarks.json "$CACHE_DIR/bookmarks.json"
+  migrate_store skill_styles.json "$CACHE_DIR/skill_styles.json"
+  migrate_store training.jsonl "$CACHE_DIR/training.jsonl"
   cp -r "$PLUGIN_DIR_SRC"/. "$PLUGIN_INSTALL_DIR"/
-  if [ -n "$backup_prompts" ]; then
-    mv "$backup_prompts" "$PLUGIN_INSTALL_DIR/prompts.json"
-  fi
-  if [ -n "$backup_directives" ]; then
-    mv "$backup_directives" "$PLUGIN_INSTALL_DIR/directives.json"
-  fi
+  # Seed the shipped defaults if the user has no store yet.
+  for name in prompts.json directives.json; do
+    [ -f "$DATA_DIR/$name" ] || cp "$PLUGIN_DIR_SRC/$name" "$DATA_DIR/$name"
+  done
 }
 
 install_plugin() {

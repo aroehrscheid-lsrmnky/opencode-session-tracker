@@ -49,9 +49,8 @@ cd opencode-session-tracker
 ```
 
 ## Data Source
-- Sessions: `~/.local/share/opencode/opencode.db` (SQLite) → exported to `~/.cache/opencode-sessions/sessions.json` by the timer
-- Library: `~/.config/omarchy/plugins/io.github.aroehrscheid-lsrmnky.opencode-sessions/prompts.json`
-- Directives: `~/.config/omarchy/plugins/io.github.aroehrscheid-lsrmnky.opencode-sessions/directives.json` (`{directives:[...], selectedId}`)
+- Sessions (cache): `~/.local/share/opencode/opencode.db` (SQLite) → exported to `~/.cache/opencode-sessions/sessions.json` by the timer
+- User data: `~/.config/opencode-sessions/` — `prompts.json` (library), `directives.json` (`{directives:[...], selectedId}`), `bookmarks.json`, `skill_styles.json`, `training.jsonl`. Kept outside the plugin dir because Omarchy hot-reloads (and closes the panel of) any plugin whose directory is written to.
 - Send target: `http://127.0.0.1:4096` (run your TUI as `opencode --port 4096` for live delivery)
 
 ## Requirements

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import json, sys, os, re
 from datetime import datetime
-path = os.path.expanduser("~/.config/omarchy/plugins/io.github.aroehrscheid-lsrmnky.opencode-sessions/prompts.json")
+path = os.path.expanduser("~/.config/opencode-sessions/prompts.json")
 text = sys.argv[1] if len(sys.argv)>1 else ""
 if not text.strip():
     sys.exit(0)
@@ -19,5 +19,6 @@ data["library"].append({
     "tags": tags,
     "favourite": False
 })
+os.makedirs(os.path.dirname(path), exist_ok=True)
 with open(path,"w") as f:
     json.dump(data,f,indent=2)

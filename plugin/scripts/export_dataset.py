@@ -2,8 +2,9 @@
 import os, json
 
 HOME = os.path.expanduser("~")
+DATA = os.path.join(HOME, ".config", "opencode-sessions")
 BASE = os.path.join(HOME, ".cache", "opencode-sessions")
-SRC = os.path.join(BASE, "training.jsonl")
+SRC = os.path.join(DATA, "training.jsonl")
 SHARE = os.path.join(BASE, "dataset_sharegpt.json")
 ALPACA = os.path.join(BASE, "dataset_alpaca.json")
 
@@ -46,6 +47,7 @@ def main():
         ]})
         alpaca.append({"instruction": req, "input": "", "output": out})
 
+    os.makedirs(BASE, exist_ok=True)
     with open(SHARE, "w", encoding="utf-8") as f:
         json.dump(sharegpt, f, indent=2, ensure_ascii=False)
     with open(ALPACA, "w", encoding="utf-8") as f:

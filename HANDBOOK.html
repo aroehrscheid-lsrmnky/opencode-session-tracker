@@ -230,7 +230,7 @@ hr{border:0;border-top:1px solid var(--line);margin:30px 0}
 ./install.sh install      # copy plugin/ → ~/.config/omarchy/plugins/&lt;id&gt;/, validate, rescan
 ./install.sh update       # re-copy after pulling new code (never clobbers your prompts.json)</code></pre>
 
-<p><code>install.sh</code> reads the plugin id straight out of <code>plugin/manifest.json</code>, backs up an existing <code>prompts.json</code> and <code>directives.json</code> before copying (so your prompt library and directives survive), runs <code>omarchy plugin validate</code>, and calls <code>omarchy-shell shell rescanPlugins</code>. The alternative one-liner from the Omarchy cheatsheet is <code>omarchy plugin add &lt;repo-url&gt; --enable</code>.</p>
+<p><code>install.sh</code> reads the plugin id straight out of <code>plugin/manifest.json</code>, backs up an existing <code>prompts.json</code> and <code>directives.json</code> before copying (so your prompt library and directives survive), runs <code>omarchy plugin validate</code>, and calls <code>omarchy-shell shell rescanPlugins</code>. User stores live in <code>~/.config/opencode-sessions/</code>, so updating the plugin never touches them; <code>install.sh</code> migrates any legacy copies and seeds the shipped defaults. The alternative one-liner from the Omarchy cheatsheet is <code>omarchy plugin add &lt;repo-url&gt; --enable</code>.</p>
 
 <h3>Start the 30-second exporter timer</h3>
 <pre><code>systemctl --user enable --now opencode-sessions-exporter.timer
@@ -245,16 +245,20 @@ systemctl --user list-timers opencode-sessions-exporter.timer   # NEXT/LAST shou
 </ul>
 
 <h3>What appears on disk</h3>
+<p>Omarchy watches <code>~/.config/omarchy/plugins/</code> with <code>inotifywait</code> and hot-reloads a plugin (closing its open panel) on <b>any</b> file write inside its directory. So the panel keeps all user-authored stores in <code>~/.config/opencode-sessions/</code> (outside the watched tree), and only derived/regeneratable files in <code>~/.cache/opencode-sessions/</code>.</p>
 <table>
   <tr><th>Path</th><th>Content</th></tr>
-  <tr><td class="file">~/.cache/opencode-sessions/sessions.json</td><td>Exported sessions + prompts + answers (rewritten every 30 s)</td></tr>
-  <tr><td class="file">~/.cache/opencode-sessions/skills.json</td><td>Discovered skills (from <code>list_skills.py</code>)</td></tr>
-  <tr><td class="file">~/.cache/opencode-sessions/skill_styles.json</td><td>Your per-skill emoji/colour choices</td></tr>
-  <tr><td class="file">~/.cache/opencode-sessions/bookmarks.json</td><td>Bookmarked session ids</td></tr>
-  <tr><td class="file">~/.cache/opencode-sessions/send_job.json</td><td>Last composed send job (written before sending)</td></tr>
-  <tr><td class="file">~/.cache/opencode-sessions/training.jsonl</td><td>One JSON line per recorded send (only with ● Record on)</td></tr>
-  <tr><td class="file">~/.config/omarchy/plugins/&lt;id&gt;/prompts.json</td><td>Your prompt library</td></tr>
+  <tr><td class="file">~/.cache/opencode-sessions/sessions.json</td><td>Exported sessions + prompts + answers (rewritten every 30 s by the timer)</td></tr>
+  <tr><td class="file">~/.cache/opencode-sessions/skills.json</td><td>Discovered skills (regenerated from <code>list_skills.py</code>)</td></tr>
+  <tr><td class="file">~/.cache/opencode-sessions/send_job.json</td><td>Transient composed send job (written before sending)</td></tr>
+  <tr><td class="file">~/.cache/opencode-sessions/dataset_*.json</td><td>Dataset export artifacts from <code>export_dataset.py</code></td></tr>
+  <tr><td class="file">~/.config/opencode-sessions/prompts.json</td><td>Your prompt library</td></tr>
+  <tr><td class="file">~/.config/opencode-sessions/directives.json</td><td>Your directives (<code>{directives:[...], selectedId}</code>)</td></tr>
+  <tr><td class="file">~/.config/opencode-sessions/bookmarks.json</td><td>Bookmarked session ids</td></tr>
+  <tr><td class="file">~/.config/opencode-sessions/skill_styles.json</td><td>Your per-skill emoji/colour choices</td></tr>
+  <tr><td class="file">~/.config/opencode-sessions/training.jsonl</td><td>One JSON line per recorded send (only with ● Record on)</td></tr>
 </table>
+<p>The shipped <code>plugin/prompts.json</code> and <code>plugin/directives.json</code> are read-only <b>seeds</b>; on first run they are copied into <code>~/.config/opencode-sessions/</code> (via <code>init_store.py</code>, with migration of any legacy copies).</p>
 
 <h2 id="howto">4 · Everyday how-to</h2>
 
@@ -333,11 +337,11 @@ systemctl --user list-timers opencode-sessions-exporter.timer   # NEXT/LAST shou
   exporter.py  ◄── systemd timer (30s)          list_skills.py
         │  writes                                     │ writes
         ▼                                             ▼
- ~/.cache/opencode-sessions/sessions.json   skills.json / skill_styles.json
+ ~/.cache/opencode-sessions/sessions.json   ~/.cache/opencode-sessions/skills.json
         │                                             │
         └──────────────┬──────────────────────────────┘
                        ▼
-   Panel.qml  (Quickshell QML, one file, ~2 280 lines)
+   Panel.qml  (Quickshell QML, one file, ~2 930 lines)
     FileView watches ──► properties ──► declarative bindings ──► 1280×820 card
                        │
         user composes ─┤─► composeRaw() ──► [ optional ] refine_prompt.py (BODI, model "ornith")
@@ -380,9 +384,10 @@ systemctl --user list-timers opencode-sessions-exporter.timer   # NEXT/LAST shou
   <tr><th style="width:300px">File</th><th>What it is</th></tr>
   <tr><td class="file">plugin/manifest.json</td><td>Plugin identity: id, name, version 0.1.0, MIT, kinds <code>["bar-widget","panel"]</code>, entry points, bar-widget metadata (display name, category, <code>allowMultiple: false</code>).</td></tr>
   <tr><td class="file">plugin/BarWidget.qml</td><td>22 lines — the bar pill and its toggle command.</td></tr>
-  <tr><td class="file">plugin/Panel.qml</td><td><b>2 900 lines</b> — the entire panel application (see §8).</td></tr>
-  <tr><td class="file">plugin/prompts.json</td><td>Seed library <code>{"library":[]}</code>. <code>install.sh</code> deliberately never overwrites the installed copy.</td></tr>
-  <tr><td class="file">plugin/directives.json</td><td>Seed directives <code>{"directives":[…6 templates…],"selectedId":""}</code>. <code>install.sh</code> never overwrites the installed copy.</td></tr>
+  <tr><td class="file">plugin/Panel.qml</td><td><b>~2 930 lines</b> — the entire panel application (see §8).</td></tr>
+  <tr><td class="file">plugin/prompts.json</td><td>Read-only <b>seed</b> library <code>{"library":[…]}</code>, copied to <code>~/.config/opencode-sessions/</code> on first run.</td></tr>
+  <tr><td class="file">plugin/directives.json</td><td>Read-only <b>seed</b> directives <code>{"directives":[…6 templates…],"selectedId":""}</code>, copied to <code>~/.config/opencode-sessions/</code> on first run.</td></tr>
+  <tr><td class="file">plugin/scripts/init_store.py</td><td>Seeds/migrates the <code>~/.config/opencode-sessions/</code> stores (run by Panel on start).</td></tr>
   <tr><td class="file">plugin/scripts/list_skills.py</td><td>Scans skill dirs → <code>skills.json</code>.</td></tr>
   <tr><td class="file">plugin/scripts/save_prompt.py</td><td>Appends a draft to the library (extracts <code>#tags</code>).</td></tr>
   <tr><td class="file">plugin/scripts/export_library.py</td><td>Library → dated JSON in <code>/tmp</code>, prints the path.</td></tr>
@@ -394,7 +399,7 @@ systemctl --user list-timers opencode-sessions-exporter.timer   # NEXT/LAST shou
   <tr><td class="file">plugin/scripts/send_prompt.py</td><td>Probes <code>127.0.0.1:4096</code>; attaches (<code>--attach</code>, live in TUI) when a server is up, else plain local <code>opencode run</code>; prints <code>MODE: …</code> + <code>OK</code>/<code>FAILED</code>; appends the training record.</td></tr>
   <tr><td class="file">plugin/scripts/export_dataset.py</td><td><code>training.jsonl</code> → ShareGPT + Alpaca files, prints a summary.</td></tr>
   <tr><td class="file">exporter.py</td><td>101 lines — OpenCode SQLite → <code>sessions.json</code>.</td></tr>
-  <tr><td class="file">install.sh</td><td><code>install</code> / <code>update</code>: copy, protect <code>prompts.json</code> + <code>directives.json</code>, validate, rescan.</td></tr>
+  <tr><td class="file">install.sh</td><td><code>install</code> / <code>update</code>: copy plugin, migrate/seed <code>~/.config/opencode-sessions/</code> stores, validate, rescan.</td></tr>
   <tr><td class="file">README.md · TESTING.md · ROADMAP.md</td><td>Short overview, test checklist, phase list (reconciled with the six-tab layout).</td></tr>
 </table>
 
@@ -404,19 +409,20 @@ systemctl --user list-timers opencode-sessions-exporter.timer   # NEXT/LAST shou
   <tr><td class="file">~/.local/share/opencode/opencode.db</td><td>OpenCode → <code>exporter.py</code> (read-only)</td></tr>
   <tr><td class="file">~/.cache/opencode-sessions/sessions.json</td><td><code>exporter.py</code> → <code>cacheView</code></td></tr>
   <tr><td class="file">~/.cache/opencode-sessions/skills.json</td><td><code>list_skills.py</code> → <code>skillsView</code></td></tr>
-  <tr><td class="file">~/.cache/opencode-sessions/skill_styles.json</td><td>Skills tab → compose chips</td></tr>
-  <tr><td class="file">~/.cache/opencode-sessions/bookmarks.json</td><td>★ toggles → chip row / filter</td></tr>
   <tr><td class="file">~/.cache/opencode-sessions/send_job.json</td><td><code>finishSend()</code> → <code>send_prompt.py</code></td></tr>
-  <tr><td class="file">~/.cache/opencode-sessions/training.jsonl</td><td><code>send_prompt.py</code> → <code>trainingView</code> → <code>export_dataset.py</code></td></tr>
   <tr><td class="file">~/.cache/opencode-sessions/dataset_sharegpt.json · dataset_alpaca.json</td><td><code>export_dataset.py</code> (artifacts)</td></tr>
-  <tr><td class="file">~/.config/omarchy/plugins/&lt;id&gt;/prompts.json</td><td>Library tab / <code>save_prompt.py</code> ↔ <code>libView</code></td></tr>
-  <tr><td class="file">~/.config/omarchy/plugins/&lt;id&gt;/directives.json</td><td>Directives tab + Main selector / <code>save_directive.py</code> ↔ <code>dirView</code></td></tr>
+  <tr><td class="file">~/.config/opencode-sessions/prompts.json</td><td>Library tab / <code>save_prompt.py</code> ↔ <code>libView</code></td></tr>
+  <tr><td class="file">~/.config/opencode-sessions/directives.json</td><td>Directives tab + Main selector / <code>save_directive.py</code> ↔ <code>dirView</code></td></tr>
+  <tr><td class="file">~/.config/opencode-sessions/bookmarks.json</td><td>★ toggles → chip row / filter</td></tr>
+  <tr><td class="file">~/.config/opencode-sessions/skill_styles.json</td><td>Skills tab → compose chips</td></tr>
+  <tr><td class="file">~/.config/opencode-sessions/training.jsonl</td><td><code>send_prompt.py</code> → <code>trainingView</code> → <code>export_dataset.py</code></td></tr>
+  <tr><td class="file">~/.config/opencode-sessions/</td><td><code>init_store.py</code> seed/migrate (run by Panel on start)</td></tr>
   <tr><td class="file">~/.config/opencode/secrets/bodi-alex.key</td><td>user → <code>refine_prompt.py</code> (0600, never logged)</td></tr>
   <tr><td class="file">~/.config/systemd/user/opencode-sessions-exporter.{service,timer}</td><td>admin → runs <code>exporter.py</code></td></tr>
 </table>
 
 <h2 id="panelqml">8 · Panel.qml walkthrough</h2>
-<p>Line numbers refer to the current <code>plugin/Panel.qml</code> (2 900 lines) — re-check them after big edits. The file is a single nested tree; there are no separate QML files.</p>
+<p>Line numbers refer to the current <code>plugin/Panel.qml</code> (2 927 lines) — re-check them after big edits. The file is a single nested tree; there are no separate QML files.</p>
 
 <h3>8.1 Window shell (lines 1–42)</h3>
 <pre><code>import QtQuick
@@ -431,11 +437,11 @@ import qs.Ui                 // last: Omarchy's own UI types (BarWidget, WidgetB
   <li><b>35–42</b> — <code>Rectangle id: card</code>: <b>1280×820</b>, radius 12, <code>#1e1e1e</code>, centred. Every layout measurement below is relative to this card (margins 12 → content x = 332…1588 on a 1920-wide screen).</li>
 </ul>
 
-<h3>8.2 State (lines 43–107)</h3>
+<h3>8.2 State (lines 43–111)</h3>
 <p>One flat property block on <code>card</code> drives everything. Grouped:</p>
 <table>
   <tr><th>Group</th><th>Properties</th></tr>
-  <tr><td>Paths</td><td><code>home</code>, <code>pluginDir</code>, <code>cachePath</code>, <code>bookmarksPath</code>, <code>libraryPath</code>, <code>directivesPath</code>, <code>skillsPath</code>, <code>skillStylesPath</code>, <code>trainingPath</code>, <code>exporterPath</code></td></tr>
+  <tr><td>Paths</td><td><code>home</code>, <code>pluginDir</code>, <code>dataDir</code> (~/.config/opencode-sessions), <code>cacheDir</code> (~/.cache/opencode-sessions), <code>cachePath</code>, <code>bookmarksPath</code>, <code>libraryPath</code>, <code>directivesPath</code>, <code>skillsPath</code>, <code>skillStylesPath</code>, <code>trainingPath</code>, <code>exporterPath</code></td></tr>
   <tr><td>Data</td><td><code>sessions</code>, <code>library</code>, <code>libraryNewText</code> (Library-tab Add field), <code>directives</code>, <code>selectedDirectiveId</code>, <code>directiveNewTitle</code>/<code>directiveNewBody</code> (Directives-tab Add fields), <code>bookmarks</code>, <code>skills</code>, <code>skillStyles</code>, <code>selectedSkills</code>, <code>trainingCount</code>, <code>trainingText</code></td></tr>
   <tr><td>Navigation</td><td><code>viewMode</code> (0 Main · 1 Library · 2 Directives · 3 Skills · 4 Stats · 5 Dataset), <code>mainTab</code> (0 Sessions · 1 Answers), <code>activeSessionIndex</code>, <code>answerPos</code>/<code>answerCount</code>, <code>sessionsCollapsed</code>, <code>bookmarkFilter</code>, <code>libPickerOpen</code></td></tr>
   <tr><td>Search / filter</td><td><code>promptSearchText</code>, <code>sessionSearchText</code>, <code>skillSearchText</code>, <code>composeSkillSearchText</code>, <code>tagFilter</code>, <code>directiveSearchText</code>, <code>directiveTagFilter</code></td></tr>
@@ -444,7 +450,7 @@ import qs.Ui                 // last: Omarchy's own UI types (BarWidget, WidgetB
   <tr><td>UI</td><td><code>statusMsg</code> (+4 s <code>statusTimer</code>), <code>emojiPalette</code> (22), <code>colorPalette</code> (24)</td></tr>
 </table>
 
-<h3>8.3 Functions (lines 108–474)</h3>
+<h3>8.3 Functions (lines 112–577)</h3>
 <table>
   <tr><th style="width:230px">Function</th><th>Purpose</th></tr>
   <tr><td class="file">setStatus / savePrompt</td><td>4-second status toast; append draft to library via <code>save_prompt.py</code>.</td></tr>
@@ -466,7 +472,7 @@ import qs.Ui                 // last: Omarchy's own UI types (BarWidget, WidgetB
   <tr><td class="file">sendPayload / finishSend</td><td>The send state machine (see §8.7).</td></tr>
 </table>
 
-<h3>8.4 Stores — FileView (lines 475–574)</h3>
+<h3>8.4 Stores — FileView (lines 578–690)</h3>
 <table>
   <tr><th>id</th><th>File</th><th>Notes</th></tr>
   <tr><td class="file">statusTimer</td><td>—</td><td>Clears <code>statusMsg</code> after 4 000 ms.</td></tr>
@@ -480,7 +486,7 @@ import qs.Ui                 // last: Omarchy's own UI types (BarWidget, WidgetB
   <tr><td class="file">sendJobView</td><td>send_job.json</td><td><code>setText()</code> before launching the send process.</td></tr>
 </table>
 
-<h3>8.5 Processes (lines 575–711)</h3>
+<h3>8.5 Processes (lines 692–883)</h3>
 <table>
   <tr><th>id</th><th>Command</th><th>Triggered by</th></tr>
   <tr><td class="file">saveProc</td><td><code>python3 scripts/save_prompt.py &lt;draft&gt;</code></td><td>Save to Library / <kbd>Ctrl</kbd>+<kbd>S</kbd></td></tr>
@@ -491,32 +497,33 @@ import qs.Ui                 // last: Omarchy's own UI types (BarWidget, WidgetB
   <tr><td class="file">dirExportJsonProc / dirExportMdProc</td><td><code>export_directives.py</code> / <code>export_directives_md.py</code></td><td>Directives toolbar</td></tr>
   <tr><td class="file">dirImportDialog / dirImportFile</td><td>tkinter file dialog → <code>import_directives.py &lt;path&gt;</code></td><td>Directives → Import</td></tr>
   <tr><td class="file">skillsProc</td><td><code>list_skills.py</code></td><td><code>Component.onCompleted</code></td></tr>
+  <tr><td class="file">initStoreProc</td><td><code>python3 scripts/init_store.py</code></td><td><code>Component.onCompleted</code> — seeds/migrates <code>~/.config/opencode-sessions/</code>, then reloads <code>libView</code>/<code>dirView</code>/<code>bmView</code>/<code>skillStylesView</code>/<code>trainingView</code></td></tr>
   <tr><td class="file">refineProc</td><td><code>refine_prompt.py</code> (stdin JSON, stdout text)</td><td><b>✨ Clean-up</b> on + Send</td></tr>
   <tr><td class="file">sendProc</td><td><code>send_prompt.py &lt;send_job.json&gt;</code></td><td>after <code>finishSend()</code></td></tr>
   <tr><td class="file">exporterProc</td><td><code>exporter.py</code></td><td>after every send, and manually</td></tr>
   <tr><td class="file">exportDatasetProc</td><td><code>export_dataset.py</code></td><td>Dataset → Export</td></tr>
 </table>
 
-<h3>8.6 Header + tabs (lines 882–1103)</h3>
+<h3>8.6 Header + tabs (lines 884–1124)</h3>
 <ul>
-  <li><b>882–895</b> — the <code>Shortcut</code>s (table in §2).</li>
-  <li><b>899–1053</b> — <code>headerCol</code> (Column, margins 12, spacing 8): title → tab row (the six tab pills in a Row, each setting <code>viewMode</code>) → sub row (visible on Main/Skills), which spans the <i>full</i> header width but holds two independent halves via a zero-height marker item <code>leftColEdge</code> (949, width = <code>card.leftPaneWidth</code>, the 42 % split):
+  <li><b>899–915</b> — the <code>Shortcut</code>s (table in §2).</li>
+  <li><b>917–1070</b> — <code>headerCol</code> (Column, margins 12, spacing 8): title → tab row (the six tab pills in a Row, each setting <code>viewMode</code>) → sub row (visible on Main/Skills), which spans the <i>full</i> header width but holds two independent halves via a zero-height marker item <code>leftColEdge</code> (966, width = <code>card.leftPaneWidth</code>, the 42 % split):
     <ul>
-      <li>left half: <b>Sessions</b>/<b>Answers</b> pills, <b>★ Bookmarked</b>, and the session-title search (1031) anchored to <code>leftColEdge.right</code> (so it ends exactly at the left column's right edge);</li>
-      <li>right half (Main): the <b>Skills (n selected)</b> label only — the compose skill/directive search boxes were moved <i>into</i> their panes (skills pane search at 1710, directives pane search at 1861); on the Skills tab (<code>viewMode 3</code>) instead: <b>Skill Appearance (n)</b> + the skill search (1045).</li>
+      <li>left half: <b>Sessions</b>/<b>Answers</b> pills, <b>★ Bookmarked</b>, and the session-title search (1048) anchored to <code>leftColEdge.right</code> (so it ends exactly at the left column's right edge);</li>
+      <li>right half (Main): the <b>Skills (n selected)</b> label only — the compose skill/directive search boxes were moved <i>into</i> their panes (skills pane search at 1727, directives pane search at 1878); on the Skills tab (<code>viewMode 3</code>) instead: <b>Skill Appearance (n)</b> + the skill search (1062).</li>
     </ul></li>
-  <li><b>1055–1103</b> — <code>contentArea</code> with the six <code>Loader</code>s (sessionsView, libraryView, directivesView, skillsEditView, statsView, datasetView); the status toast Text follows below.</li>
+  <li><b>1072–1112</b> — <code>contentArea</code> with the six <code>Loader</code>s (sessionsView, libraryView, directivesView, skillsEditView, statsView, datasetView); the status toast Text follows below.</li>
 </ul>
 
 <h3>8.7 The six Components</h3>
 <table>
   <tr><th>Component</th><th>Line</th><th>Internal structure</th></tr>
-  <tr><td class="file">sessionsView</td><td>1135</td><td>Two columns: <b>left</b> (<code>leftPane</code>) session chips → <code>recentLabel</code>/<code>searchField</code> → prompt list <i>or</i> the answer view with the selected-prompt box, counter, nav, font row, refresh; <b>right</b> Send bar <code>buttonBar</code> (bottom) → <b>System Prompts</b> reserved strip <code>systemPromptsPane</code> (44 px, disabled "coming soon" placeholder) → Skills pane <code>skillsPane</code> (100 px: "Skills" label + <b>Search skills to toggle…</b> field, then the toggle-chip <code>Flow</code>) → Directives pane <code>directivesPane</code> (224 px: title + selected-name pill + Save, <b>Search directives to toggle…</b>, single-select chip <code>Flow</code>, and the editable box bound to <code>card.directiveText</code>) → User Prompt header (label + Library chip left, Copy/Save/Clear right) → inline library picker (<code>inlineLibPicker</code>) — the only place a library item is inserted into the draft.</td></tr>
-  <tr><td class="file">libraryView</td><td>1845</td><td>Toolbar <code>libToolbar</code> (Prompt Library + Export JSON / Export MD / Import) → tag chips <code>tagFlow</code> → <code>libScroll</code> holding a 2-per-row <code>Flow</code> <code>libGrid</code> of editable cards (<code>libRepeater</code>: width <code>floor((availableWidth-6)/2)</code>, height 180, internal <code>ScrollView</code> editor, tags Flow, created-at date, <b>Save</b>/<b>Revert</b> + two-step <b>Delete</b> with a 4 s disarm timer; dirty cards get a blue border) → fixed bottom composer <code>libComposer</code> (one-line <code>libNewField</code> + <b>Add</b>, <code>Enter</code> also adds) → empty-state Text. No click-to-insert: cards edit, they do not paste.</td></tr>
-  <tr><td class="file">directivesView</td><td>~2325</td><td>Direct mirror of <code>libraryView</code> for directives: toolbar (Directives + Export JSON / Export MD / Import) → tag chips <code>dirTagFlow</code> (uses <code>directiveTagFilter</code>) → 2-per-row cards (<code>dirRepeater</code>, height 210) each with a <b>Title</b> field, a body editor, tags, date, and a <b>Select</b>/<b>Selected</b> button (blue border when it is the active directive) plus Save/Revert/Delete → bottom composer <code>dirComposer</code> (title field + body field + <b>Add</b>).</td></tr>
-  <tr><td class="file">skillsEditView</td><td>2091</td><td>Toolbar text → <code>skillsEditScroll</code> → <code>Flow</code> of 2-per-row cards (width <code>floor((availableWidth-6)/2)</code>, height 92) built from <code>filteredSkills()</code>.</td></tr>
-  <tr><td class="file">statsView</td><td>2290</td><td>Counters.</td></tr>
-  <tr><td class="file">datasetView</td><td>2319</td><td>Count + Export/Refresh + status line + monospace log viewer.</td></tr>
+  <tr><td class="file">sessionsView</td><td>1125</td><td>Two columns: <b>left</b> (<code>leftPane</code>) session chips → <code>recentLabel</code>/<code>searchField</code> → prompt list <i>or</i> the answer view with the selected-prompt box, counter, nav, font row, refresh; <b>right</b> Send bar <code>buttonBar</code> (bottom) → <b>System Prompts</b> reserved strip <code>systemPromptsPane</code> (44 px, disabled "coming soon" placeholder) → Skills pane <code>skillsPane</code> (100 px: "Skills" label + <b>Search skills to toggle…</b> field, then the toggle-chip <code>Flow</code>) → Directives pane <code>directivesPane</code> (224 px: title + selected-name pill + Save, <b>Search directives to toggle…</b>, single-select chip <code>Flow</code>, and the editable box bound to <code>card.directiveText</code>) → User Prompt header (label + Library chip left, Copy/Save/Clear right) → inline library picker (<code>inlineLibPicker</code>) — the only place a library item is inserted into the draft.</td></tr>
+  <tr><td class="file">libraryView</td><td>2107</td><td>Toolbar <code>libToolbar</code> (Prompt Library + Export JSON / Export MD / Import) → tag chips <code>tagFlow</code> → <code>libScroll</code> holding a 2-per-row <code>Flow</code> <code>libGrid</code> of editable cards (<code>libRepeater</code>: width <code>floor((availableWidth-6)/2)</code>, height 180, internal <code>ScrollView</code> editor, tags Flow, created-at date, <b>Save</b>/<b>Revert</b> + two-step <b>Delete</b> with a 4 s disarm timer; dirty cards get a blue border) → fixed bottom composer <code>libComposer</code> (one-line <code>libNewField</code> + <b>Add</b>, <code>Enter</code> also adds) → empty-state Text. No click-to-insert: cards edit, they do not paste.</td></tr>
+  <tr><td class="file">directivesView</td><td>2353</td><td>Direct mirror of <code>libraryView</code> for directives: toolbar (Directives + Export JSON / Export MD / Import) → tag chips <code>dirTagFlow</code> (uses <code>directiveTagFilter</code>) → 2-per-row cards (<code>dirRepeater</code>, height 210) each with a <b>Title</b> field, a body editor, tags, date, and a <b>Select</b>/<b>Selected</b> button (blue border when it is the active directive) plus Save/Revert/Delete → bottom composer <code>dirComposer</code> (title field + body field + <b>Add</b>).</td></tr>
+  <tr><td class="file">skillsEditView</td><td>2637</td><td>Toolbar text → <code>skillsEditScroll</code> → <code>Flow</code> of 2-per-row cards (width <code>floor((availableWidth-6)/2)</code>, height 92) built from <code>filteredSkills()</code>.</td></tr>
+  <tr><td class="file">statsView</td><td>2836</td><td>Counters.</td></tr>
+  <tr><td class="file">datasetView</td><td>2865</td><td>Count + Export/Refresh + status line + monospace log viewer.</td></tr>
 </table>
 
 <h3>8.8 The send state machine</h3>

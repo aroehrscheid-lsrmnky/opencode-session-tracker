@@ -43,10 +43,12 @@ Item {
 
             readonly property string home: Quickshell.env("HOME")
             readonly property string pluginDir: home + "/.config/omarchy/plugins/io.github.aroehrscheid-lsrmnky.opencode-sessions"
-            readonly property string cachePath: home + "/.cache/opencode-sessions/sessions.json"
-            readonly property string bookmarksPath: home + "/.cache/opencode-sessions/bookmarks.json"
-            readonly property string libraryPath: pluginDir + "/prompts.json"
-            readonly property string directivesPath: pluginDir + "/directives.json"
+            readonly property string dataDir: home + "/.config/opencode-sessions"
+            readonly property string cacheDir: home + "/.cache/opencode-sessions"
+            readonly property string cachePath: cacheDir + "/sessions.json"
+            readonly property string bookmarksPath: dataDir + "/bookmarks.json"
+            readonly property string libraryPath: dataDir + "/prompts.json"
+            readonly property string directivesPath: dataDir + "/directives.json"
             property var sessions: []
             property int activeSessionIndex: 0
             property var library: []
@@ -92,9 +94,9 @@ Item {
             property bool sending: false
             property int trainingCount: 0
             property string trainingText: ""
-            readonly property string skillsPath: home + "/.cache/opencode-sessions/skills.json"
-            readonly property string skillStylesPath: home + "/.cache/opencode-sessions/skill_styles.json"
-            readonly property string trainingPath: home + "/.cache/opencode-sessions/training.jsonl"
+            readonly property string skillsPath: cacheDir + "/skills.json"
+            readonly property string skillStylesPath: dataDir + "/skill_styles.json"
+            readonly property string trainingPath: dataDir + "/training.jsonl"
             readonly property string exporterPath: home + "/documents/opencode-session-tracker/exporter.py"
 
             onSessionsChanged: {
@@ -102,7 +104,10 @@ Item {
                     activeSessionIndex = Math.max(0, sessions.length - 1)
             }
 
-            Component.onCompleted: skillsProc.running = true
+            Component.onCompleted: {
+                initStoreProc.running = true
+                skillsProc.running = true
+            }
 
             function setStatus(msg) {
                 statusMsg = msg
@@ -554,7 +559,7 @@ Item {
                     record: recordOn
                 }
                 sendJobView.setText(JSON.stringify(job))
-                sendProc.jobPath = home + "/.cache/opencode-sessions/send_job.json"
+                sendProc.jobPath = card.cacheDir + "/send_job.json"
                 setStatus("Sending…")
                 sendProc.running = true
             }
@@ -680,8 +685,20 @@ Item {
 
             FileView {
                 id: sendJobView
-                path: card.home + "/.cache/opencode-sessions/send_job.json"
+                path: card.cacheDir + "/send_job.json"
                 printErrors: false
+            }
+
+            Process {
+                id: initStoreProc
+                command: ["python3", card.pluginDir + "/scripts/init_store.py"]
+                onExited: (exitCode, exitStatus) => {
+                    libView.reload()
+                    dirView.reload()
+                    bmView.reload()
+                    skillStylesView.reload()
+                    trainingView.reload()
+                }
             }
 
             Process {
