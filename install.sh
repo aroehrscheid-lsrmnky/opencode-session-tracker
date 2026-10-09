@@ -14,15 +14,22 @@ PLUGIN_ID=$(python3 -c "import json; print(json.load(open('$MANIFEST'))['id'])")
 PLUGIN_INSTALL_DIR="$HOME/.config/omarchy/plugins/$PLUGIN_ID"
 
 copy_plugin() {
-  # Never clobber the user's prompt library with the repo's empty seed copy.
-  local backup=""
+  # Never clobber the user's stores with the repo's seed copies.
+  local backup_prompts="" backup_directives=""
   if [ -f "$PLUGIN_INSTALL_DIR/prompts.json" ]; then
-    backup="$(mktemp)"
-    cp "$PLUGIN_INSTALL_DIR/prompts.json" "$backup"
+    backup_prompts="$(mktemp)"
+    cp "$PLUGIN_INSTALL_DIR/prompts.json" "$backup_prompts"
+  fi
+  if [ -f "$PLUGIN_INSTALL_DIR/directives.json" ]; then
+    backup_directives="$(mktemp)"
+    cp "$PLUGIN_INSTALL_DIR/directives.json" "$backup_directives"
   fi
   cp -r "$PLUGIN_DIR_SRC"/. "$PLUGIN_INSTALL_DIR"/
-  if [ -n "$backup" ]; then
-    mv "$backup" "$PLUGIN_INSTALL_DIR/prompts.json"
+  if [ -n "$backup_prompts" ]; then
+    mv "$backup_prompts" "$PLUGIN_INSTALL_DIR/prompts.json"
+  fi
+  if [ -n "$backup_directives" ]; then
+    mv "$backup_directives" "$PLUGIN_INSTALL_DIR/directives.json"
   fi
 }
 

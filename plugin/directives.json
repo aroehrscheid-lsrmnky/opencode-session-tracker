@@ -1,0 +1,47 @@
+{
+  "directives": [
+    {
+      "id": "seed-code-review",
+      "title": "Code Review",
+      "text": "Review this code for bugs, performance issues, and best practices. Be thorough but concise.",
+      "created_at": "2025-01-01T00:00:00",
+      "tags": []
+    },
+    {
+      "id": "seed-debug-helper",
+      "title": "Debug Helper",
+      "text": "Help me debug this issue. Ask clarifying questions if needed, then provide step-by-step debugging approach.",
+      "created_at": "2025-01-01T00:00:00",
+      "tags": []
+    },
+    {
+      "id": "seed-doc-writer",
+      "title": "Doc Writer",
+      "text": "Write clear documentation for this code/function. Include purpose, parameters, return values, and examples.",
+      "created_at": "2025-01-01T00:00:00",
+      "tags": []
+    },
+    {
+      "id": "seed-refactor-guide",
+      "title": "Refactor Guide",
+      "text": "Suggest refactoring improvements for readability, maintainability, and performance. Show before/after.",
+      "created_at": "2025-01-01T00:00:00",
+      "tags": []
+    },
+    {
+      "id": "seed-test-generator",
+      "title": "Test Generator",
+      "text": "Generate comprehensive unit tests for this code. Cover edge cases, happy path, and error conditions.",
+      "created_at": "2025-01-01T00:00:00",
+      "tags": []
+    },
+    {
+      "id": "seed-security-audit",
+      "title": "Security Audit",
+      "text": "Analyze this code for security vulnerabilities. Check for injection, auth bypass, data exposure, etc.",
+      "created_at": "2025-01-01T00:00:00",
+      "tags": []
+    }
+  ],
+  "selectedId": ""
+}

@@ -20,11 +20,11 @@ def main():
         return 2
 
     skills = data.get("skills", []) or []
-    system = (data.get("system") or "").strip()
+    directive = (data.get("directive") or data.get("system") or "").strip()
     user = (data.get("user") or "").strip()
     model = data.get("model") or "ornith"
 
-    if not skills and not system and not user:
+    if not skills and not directive and not user:
         print("ERROR: nothing to merge", file=sys.stderr)
         return 2
 
@@ -38,8 +38,8 @@ def main():
     parts = []
     if skills:
         parts.append("Skills the agent must use: " + ", ".join(skills))
-    if system:
-        parts.append("System / standing instructions:\n" + system)
+    if directive:
+        parts.append("Directive / standing instructions:\n" + directive)
     if user:
         parts.append("Request:\n" + user)
 

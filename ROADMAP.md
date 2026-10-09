@@ -27,7 +27,17 @@
 - [x] Copy to clipboard
 - [x] Keyboard shortcuts (Ctrl+1-4, Ctrl+E, Ctrl+F, Ctrl+S, Ctrl+W, Esc)
 
-## Phase 4 – Polish 🔄
+## Phase 5 – Prompt Workbench ✅
+- [x] Skills tab: per-skill emoji/colour appearance (`skill_styles.json`)
+- [x] Directives: titled, single-select standing instructions (`directives.json`) + full CRUD tab, selection shared with the Main compose pane
+- [x] BODI clean-up (`✨`) via `refine_prompt.py`
+- [x] Live send into OpenCode (`--attach` to `opencode --port 4096`, local-spawn fallback)
+- [x] Training capture: `training.jsonl` + ShareGPT/Alpaca export
+- [x] Six-tab layout with `Ctrl+1…7` shortcuts
+
+## Phase 6 – Polish 🔄
+- [ ] System Prompts tab: manage OpenCode's own standing instruction files
+      (the reserved Main strip is a placeholder for this; deferred)
 - [ ] Theming (light/dark variants)
 - [ ] Settings UI (persist font settings)
 - [ ] GitHub release workflow

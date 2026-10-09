@@ -1,6 +1,6 @@
 # Testing Guide
 
-Manual test checklist for the current five-tab panel. For full feature docs see `HANDBOOK.html`.
+Manual test checklist for the current six-tab panel. For full feature docs see `HANDBOOK.html`.
 
 ## Prerequisites
 - Omarchy (Hyprland + Quickshell)
@@ -23,6 +23,9 @@ omarchy-shell shell summon "io.github.aroehrscheid-lsrmnky.opencode-sessions" '{
 ```bash
 python3 ~/documents/opencode-session-tracker/exporter.py
 cat ~/.cache/opencode-sessions/sessions.json | jq '.sessions | length'
+# directives scripts (round-trip; the import run should add nothing new)
+python3 ~/documents/opencode-session-tracker/plugin/scripts/export_directives.py
+python3 ~/documents/opencode-session-tracker/plugin/scripts/import_directives.py /tmp/opencode-directives-*.json
 ```
 
 ## Checklist
@@ -34,7 +37,7 @@ cat ~/.cache/opencode-sessions/sessions.json | jq '.sessions | length'
 - [ ] Click prompt → Answer view; markdown renders (headers, lists, code)
 - [ ] Answer navigation: Ctrl+Shift+Left/Right, font size/family controls, Refresh
 - [ ] Bookmark star + bookmark filter pill work
-- [ ] Right pane: key injections insert, system/user prompt edit, skills chips toggle
+- [ ] Right pane: a directive chip selects/deselects, the directive box edits the selected text, user prompt edits, skills chips toggle
 - [ ] Save to Library writes prompts.json with `#tags` extracted
 
 ### Send bar
@@ -54,15 +57,25 @@ cat ~/.cache/opencode-sessions/sessions.json | jq '.sessions | length'
 - [ ] Export JSON / Export MD create `/tmp/opencode-library-*.{json,md}`
 - [ ] Import merges a previously exported JSON (dedup by id)
 
-### Skills tab (Ctrl+4)
+### Directives tab (Ctrl+4)
+- [ ] Cards render 2 per row with a Title field + body; edit → blue border, **Save** persists to `directives.json` and re-derives `#tags`
+- [ ] **Revert** restores the original title/text and clears the blue border
+- [ ] Two-step **Delete** (Confirm? → auto-disarm after 4 s); deleting the selected directive clears the selection
+- [ ] **Select** radio sets the single active directive (shared with the Main tab chip row); selecting another moves it
+- [ ] Bottom composer: Title + body + **Add** → status "Directive added", fields clear, card appears and survives reload
+- [ ] Tag chips filter the grid; empty filter shows an empty-state message
+- [ ] Export JSON / Export MD create `/tmp/opencode-directives-*.{json,md}`
+- [ ] Import merges a previously exported JSON (dedup by id)
+
+### Skills tab (Ctrl+5)
 - [ ] Skills from the 4 skill dirs list with emoji/color
 - [ ] Per-skill appearance editing persists to `skills.json`
 - [ ] Search filters both panes
 
-### Stats tab (Ctrl+5)
+### Stats tab (Ctrl+6)
 - [ ] Session/library/prompt counts display
 
-### Dataset tab (Ctrl+6)
+### Dataset tab (Ctrl+7)
 - [ ] Record count matches `training.jsonl`
 - [ ] Export creates ShareGPT + Alpaca JSON
 
@@ -70,7 +83,7 @@ cat ~/.cache/opencode-sessions/sessions.json | jq '.sessions | length'
 - [ ] `Esc` closes panel
 - [ ] `Ctrl+F` focuses the prompt search (Main tab)
 - [ ] `Ctrl+S` save, `Ctrl+W` clear draft, `Ctrl+E` back to Sessions
-- [ ] `Ctrl+1…6` switch tabs
+- [ ] `Ctrl+1…7` switch tabs
 - [ ] `Ctrl+Return` send
 
 ## Debug
@@ -78,6 +91,7 @@ cat ~/.cache/opencode-sessions/sessions.json | jq '.sessions | length'
 systemctl --user status opencode-sessions-exporter.timer
 cat ~/.cache/opencode-sessions/sessions.json | jq '.sessions | length'
 cat ~/.config/omarchy/plugins/io.github.aroehrscheid-lsrmnky.opencode-sessions/prompts.json | jq '.library | length'
+cat ~/.config/omarchy/plugins/io.github.aroehrscheid-lsrmnky.opencode-sessions/directives.json | jq '.directives | length'
 qs log -p "$OMARCHY_PATH/shell" --tail 100
 ```
 

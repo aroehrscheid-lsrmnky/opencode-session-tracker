@@ -45,6 +45,7 @@ Item {
             readonly property string cachePath: home + "/.cache/opencode-sessions/sessions.json"
             readonly property string bookmarksPath: home + "/.cache/opencode-sessions/bookmarks.json"
             readonly property string libraryPath: pluginDir + "/prompts.json"
+            readonly property string directivesPath: pluginDir + "/directives.json"
             property var sessions: []
             property int activeSessionIndex: 0
             property var library: []
@@ -60,7 +61,7 @@ Item {
             property int mainTab: 0
             property string tagFilter: ""
             property string draftText: ""
-            property string systemPromptText: ""
+            property string directiveText: ""
             property string statusMsg: ""
             property int answerFontSize: 13
             property string answerFontFamily: "JetBrains Mono"
@@ -71,7 +72,12 @@ Item {
             readonly property real leftPaneWidth: Math.max(360, (contentArea.width - 8) * 0.42)
             property int answerPos: 0
             property int answerCount: 0
-            property bool keyInjectionsOpen: false
+            property var directives: []
+            property string selectedDirectiveId: ""
+            property string directiveNewTitle: ""
+            property string directiveNewBody: ""
+            property string directiveSearchText: ""
+            property string directiveTagFilter: ""
             property var skills: []
             property var skillStyles: ({})
             property string skillSearchText: ""
@@ -89,14 +95,6 @@ Item {
             readonly property string skillStylesPath: home + "/.cache/opencode-sessions/skill_styles.json"
             readonly property string trainingPath: home + "/.cache/opencode-sessions/training.jsonl"
             readonly property string exporterPath: home + "/documents/opencode-session-tracker/exporter.py"
-            readonly property var keyInjections: [
-                {label: "Code Review", text: "Review this code for bugs, performance issues, and best practices. Be thorough but concise."},
-                {label: "Debug Helper", text: "Help me debug this issue. Ask clarifying questions if needed, then provide step-by-step debugging approach."},
-                {label: "Doc Writer", text: "Write clear documentation for this code/function. Include purpose, parameters, return values, and examples."},
-                {label: "Refactor Guide", text: "Suggest refactoring improvements for readability, maintainability, and performance. Show before/after."},
-                {label: "Test Generator", text: "Generate comprehensive unit tests for this code. Cover edge cases, happy path, and error conditions."},
-                {label: "Security Audit", text: "Analyze this code for security vulnerabilities. Check for injection, auth bypass, data exposure, etc."}
-            ]
 
             onSessionsChanged: {
                 if (activeSessionIndex >= sessions.length)
@@ -254,12 +252,103 @@ Item {
                 draftText += txt
             }
 
-            function injectSystem(txt) {
-                if (!txt) return
-                if (systemPromptText.length > 0 && !systemPromptText.endsWith("\n")) systemPromptText += "\n"
-                systemPromptText += txt
-                if (!txt.endsWith("\n")) systemPromptText += "\n"
-                setStatus("Injected: " + (txt.length > 30 ? txt.substring(0, 30) + "..." : txt))
+            function directiveTextFor(id) {
+                if (!id) return ""
+                for (var i = 0; i < directives.length; i++) {
+                    if (directives[i].id === id) return String(directives[i].text || "")
+                }
+                return ""
+            }
+
+            function selectedDirectiveTitle() {
+                for (var i = 0; i < directives.length; i++) {
+                    if (directives[i].id === selectedDirectiveId) return String(directives[i].title || directives[i].text || "")
+                }
+                return ""
+            }
+
+            function selectDirective(id) {
+                if (selectedDirectiveId === id) id = ""
+                selectedDirectiveId = id
+                directiveText = directiveTextFor(id)
+                dirView.setText(JSON.stringify({ directives: directives, selectedId: selectedDirectiveId }, null, 2))
+                setStatus(id === "" ? "Directive cleared" : "Directive: " + selectedDirectiveTitle())
+            }
+
+            function directiveTags() {
+                var tags = []
+                for (var i = 0; i < directives.length; i++) {
+                    var itemTags = directives[i].tags || []
+                    for (var j = 0; j < itemTags.length; j++) {
+                        if (tags.indexOf(itemTags[j]) === -1) tags.push(itemTags[j])
+                    }
+                }
+                return tags
+            }
+
+            function filteredDirectives() {
+                return directives.filter(d => {
+                    return !directiveTagFilter || (d.tags || []).indexOf(directiveTagFilter) !== -1
+                })
+            }
+
+            function filteredComposeDirectives() {
+                var q = directiveSearchText.toLowerCase().trim()
+                return directives.filter(d => {
+                    return q === "" || String(d.title || "").toLowerCase().includes(q) || String(d.text || "").toLowerCase().includes(q)
+                })
+            }
+
+            function updateDirectiveItem(id, newTitle, newText) {
+                var next = []
+                for (var i = 0; i < directives.length; i++) {
+                    var it = directives[i]
+                    if (it.id === id) {
+                        next.push({
+                            id: it.id,
+                            title: newTitle,
+                            text: newText,
+                            created_at: it.created_at,
+                            tags: extractTags(newTitle + " " + newText)
+                        })
+                    } else {
+                        next.push(it)
+                    }
+                }
+                directives = next
+                if (selectedDirectiveId === id) directiveText = newText
+                dirView.setText(JSON.stringify({ directives: next, selectedId: selectedDirectiveId }, null, 2))
+                setStatus("Directive updated")
+            }
+
+            function deleteDirectiveItem(id) {
+                var next = []
+                for (var i = 0; i < directives.length; i++) {
+                    if (directives[i].id !== id) next.push(directives[i])
+                }
+                directives = next
+                var sel = selectedDirectiveId === id ? "" : selectedDirectiveId
+                selectedDirectiveId = sel
+                if (sel === "") directiveText = ""
+                dirView.setText(JSON.stringify({ directives: next, selectedId: sel }, null, 2))
+                setStatus("Directive deleted")
+            }
+
+            function saveDirectiveText() {
+                if (selectedDirectiveId === "") {
+                    setStatus("No directive selected")
+                    return
+                }
+                updateDirectiveItem(selectedDirectiveId, selectedDirectiveTitle(), directiveText)
+            }
+
+            function addDirective() {
+                if (directiveNewTitle.trim() === "" && directiveNewBody.trim() === "") {
+                    setStatus("Nothing to add")
+                    return
+                }
+                if (dirAddProc.running) return
+                dirAddProc.running = true
             }
 
             function sessionEntries(idx) {
@@ -418,7 +507,7 @@ Item {
                 var parts = []
                 var sd = skillsDirective()
                 if (sd !== "") parts.push(sd)
-                if (systemPromptText.trim() !== "") parts.push(systemPromptText.trim())
+                if (directiveText.trim() !== "") parts.push(directiveText.trim())
                 if (draftText.trim() !== "") parts.push(draftText.trim())
                 return parts.join("\n\n")
             }
@@ -455,7 +544,9 @@ Item {
                     cleanup: cleaned,
                     cleanup_model: cleaned ? "ornith" : "",
                     selected_skills: selectedSkills,
-                    system_prompt: systemPromptText,
+                    directive: directiveText,
+                    directive_id: selectedDirectiveId,
+                    directive_title: selectedDirectiveTitle(),
                     user_prompt: draftText,
                     raw_payload: composeRaw(),
                     payload: payload,
@@ -504,6 +595,26 @@ Item {
                         card.library = d.library || []
                     } catch (e) {
                         card.library = []
+                    }
+                }
+            }
+
+            FileView {
+                id: dirView
+                path: card.directivesPath
+                watchChanges: true
+                printErrors: false
+                onFileChanged: reload()
+                onLoaded: {
+                    try {
+                        var d = JSON.parse(String(text() || "{}"))
+                        card.directives = d.directives || []
+                        card.selectedDirectiveId = d.selectedId || ""
+                        card.directiveText = card.directiveTextFor(card.selectedDirectiveId)
+                    } catch (e) {
+                        card.directives = []
+                        card.selectedDirectiveId = ""
+                        card.directiveText = ""
                     }
                 }
             }
@@ -643,6 +754,64 @@ Item {
             }
 
             Process {
+                id: dirAddProc
+                command: ["python3", card.pluginDir + "/scripts/save_directive.py", card.directiveNewTitle, card.directiveNewBody]
+                onExited: (exitCode, exitStatus) => {
+                    if (exitCode === 0) {
+                        card.directiveNewTitle = ""
+                        card.directiveNewBody = ""
+                        card.setStatus("Directive added")
+                        dirView.reload()
+                    } else {
+                        card.setStatus("Add failed (exit " + exitCode + ")")
+                    }
+                }
+            }
+
+            Process {
+                id: dirExportJsonProc
+                command: ["python3", card.pluginDir + "/scripts/export_directives.py"]
+                stdout: SplitParser {
+                    onRead: function(line) {
+                        if (String(line).trim() !== "") card.setStatus("Exported: " + String(line).trim())
+                    }
+                }
+            }
+
+            Process {
+                id: dirExportMdProc
+                command: ["python3", card.pluginDir + "/scripts/export_directives_md.py"]
+                stdout: SplitParser {
+                    onRead: function(line) {
+                        if (String(line).trim() !== "") card.setStatus("Exported: " + String(line).trim())
+                    }
+                }
+            }
+
+            Process {
+                id: dirImportDialog
+                command: ["python3", "-c", "import tkinter.filedialog as fd; print(fd.askopenfilename(), flush=True)"]
+                stdout: SplitParser {
+                    onRead: function(line) {
+                        var p = String(line).trim()
+                        if (p === "") return
+                        dirImportFile.command = ["python3", card.pluginDir + "/scripts/import_directives.py", p]
+                        dirImportFile.running = true
+                    }
+                }
+            }
+
+            Process {
+                id: dirImportFile
+                stdout: SplitParser {
+                    onRead: function(line) {
+                        if (String(line).trim() !== "") card.setStatus(String(line).trim())
+                    }
+                }
+                onExited: dirView.reload()
+            }
+
+            Process {
                 id: skillsProc
                 command: ["python3", card.pluginDir + "/scripts/list_skills.py"]
                 onExited: skillsView.reload()
@@ -656,7 +825,7 @@ Item {
                 stdinEnabled: true
                 onStarted: write(JSON.stringify({
                     skills: card.selectedSkills,
-                    system: card.systemPromptText,
+                    directive: card.directiveText,
                     user: card.draftText,
                     model: "ornith"
                 }) + "\n")
@@ -720,6 +889,7 @@ Item {
             Shortcut { sequence: "Ctrl+4"; onActivated: card.viewMode = 2 }
             Shortcut { sequence: "Ctrl+5"; onActivated: card.viewMode = 3 }
             Shortcut { sequence: "Ctrl+6"; onActivated: card.viewMode = 4 }
+            Shortcut { sequence: "Ctrl+7"; onActivated: card.viewMode = 5 }
             Shortcut { sequence: "Ctrl+Return"; onActivated: card.sendPayload(false) }
             Shortcut { sequence: "Ctrl+Shift+Right"; onActivated: card.navigateAnswer(1) }
             Shortcut { sequence: "Ctrl+Shift+Left"; onActivated: card.navigateAnswer(-1) }
@@ -750,7 +920,7 @@ Item {
                         spacing: 8
 
                         Repeater {
-                            model: ["Main", "Library", "Skills", "Stats", "Dataset"]
+                            model: ["Main", "Library", "Directives", "Skills", "Stats", "Dataset"]
                             delegate: Rectangle {
                                 width: 100
                                 height: 28
@@ -770,7 +940,7 @@ Item {
                 }
 
                 Item {
-                    visible: card.viewMode === 0 || card.viewMode === 2
+                    visible: card.viewMode === 0 || card.viewMode === 3
                     width: headerCol.width
                     height: 24
 
@@ -831,7 +1001,7 @@ Item {
                     }
 
                     Text {
-                        visible: card.viewMode === 2
+                        visible: card.viewMode === 3
                         anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
                         text: "Skill Appearance  (" + card.skills.length + ")"
@@ -865,7 +1035,7 @@ Item {
                     }
 
                     TextField {
-                        visible: card.viewMode === 2
+                        visible: card.viewMode === 3
                         anchors.right: leftColEdge.right
                         anchors.rightMargin: 10
                         anchors.verticalCenter: parent.verticalCenter
@@ -879,6 +1049,7 @@ Item {
                     }
 
                     TextField {
+                        id: composeSkillSearchField
                         visible: card.viewMode === 0
                         anchors.right: parent.right
                         anchors.rightMargin: 6
@@ -887,6 +1058,20 @@ Item {
                         height: 24
                         placeholderText: "Search skills to toggle..."
                         onTextChanged: card.composeSkillSearchText = text
+                        background: Rectangle { color: "#252525"; radius: 6 }
+                        color: "white"
+                        font.pixelSize: 11
+                    }
+
+                    TextField {
+                        visible: card.viewMode === 0
+                        anchors.right: composeSkillSearchField.left
+                        anchors.rightMargin: 6
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 190
+                        height: 24
+                        placeholderText: "Search directives..."
+                        onTextChanged: card.directiveSearchText = text
                         background: Rectangle { color: "#252525"; radius: 6 }
                         color: "white"
                         font.pixelSize: 11
@@ -918,16 +1103,21 @@ Item {
                 Loader {
                     anchors.fill: parent
                     active: card.viewMode === 2
-                    sourceComponent: skillsEditView
+                    sourceComponent: directivesView
                 }
                 Loader {
                     anchors.fill: parent
                     active: card.viewMode === 3
-                    sourceComponent: statsView
+                    sourceComponent: skillsEditView
                 }
                 Loader {
                     anchors.fill: parent
                     active: card.viewMode === 4
+                    sourceComponent: statsView
+                }
+                Loader {
+                    anchors.fill: parent
+                    active: card.viewMode === 5
                     sourceComponent: datasetView
                 }
             }
@@ -1475,10 +1665,46 @@ Item {
                             }
                         }
 
+                        // ---------- System Prompts (reserved) ----------
+                        Rectangle {
+                            id: systemPromptsPane
+                            anchors.top: parent.top
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            height: 44
+                            radius: 8
+                            color: "#1b1b1b"
+                            border.width: 1
+                            border.color: "#2a2a2a"
+
+                            Row {
+                                anchors.left: parent.left
+                                anchors.leftMargin: 10
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 8
+
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: "System Prompts"
+                                    color: "#aaa"
+                                    font.pixelSize: 11
+                                    font.weight: Font.Medium
+                                }
+
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: "parts merged into the OpenCode system prompt — coming soon"
+                                    color: "#666"
+                                    font.pixelSize: 10
+                                }
+                            }
+                        }
+
                         // ---------- Skills ----------
                         Rectangle {
                             id: skillsPane
-                            anchors.top: parent.top
+                            anchors.top: systemPromptsPane.bottom
+                            anchors.topMargin: 6
                             anchors.left: parent.left
                             anchors.right: parent.right
                             height: 76
@@ -1558,127 +1784,136 @@ Item {
                             }
                         }
 
-                        // Key Injections toggle
+                        // ---------- Directives ----------
                         Rectangle {
-                            id: keyInjToggle
+                            id: directivesPane
                             anchors.top: skillsPane.bottom
                             anchors.topMargin: 6
                             anchors.left: parent.left
                             anchors.right: parent.right
-                            height: 24
-                            radius: 6
-                            color: card.keyInjectionsOpen ? "#3a6df0" : "#252525"
-                            Text {
-                                anchors.left: parent.left
-                                anchors.leftMargin: 10
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: (card.keyInjectionsOpen ? "▼" : "▶") + " Key Injections"
-                                color: card.keyInjectionsOpen ? "#fff" : "#ccc"
-                                font.pixelSize: 11
-                            }
-                            MouseArea { anchors.fill: parent; onClicked: card.keyInjectionsOpen = !card.keyInjectionsOpen }
-                        }
-
-                        // Key Injections list
-                        Rectangle {
-                            id: keyInjPanel
-                            visible: card.keyInjectionsOpen
-                            anchors.top: keyInjToggle.bottom
-                            anchors.topMargin: 4
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            height: 130
+                            height: 200
                             radius: 8
                             color: "#202020"
 
-                            ScrollView {
-                                id: keyInjScroll
+                            Column {
                                 anchors.fill: parent
                                 anchors.margins: 6
-                                clip: true
-                                contentWidth: availableWidth
+                                spacing: 4
 
-                                Column {
-                                    width: keyInjScroll.availableWidth
-                                    spacing: 3
+                                Item {
+                                    width: parent.width
+                                    height: 22
 
-                                    Repeater {
-                                        model: card.keyInjections
-                                        delegate: Rectangle {
-                                            width: parent.width
-                                            height: 22
+                                    Row {
+                                        anchors.left: parent.left
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: 6
+
+                                        Text {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            text: "Directives"
+                                            color: "#aaa"
+                                            font.pixelSize: 11
+                                            font.weight: Font.Medium
+                                        }
+
+                                        Rectangle {
+                                            height: 20
                                             radius: 4
-                                            color: keyInjMa.containsMouse ? "#333" : "#2a2a2a"
-
+                                            color: "#252525"
+                                            width: dirSelLabel.implicitWidth + 10
                                             Text {
-                                                anchors.left: parent.left
-                                                anchors.verticalCenter: parent.verticalCenter
-                                                anchors.leftMargin: 6
-                                                anchors.right: parent.right
-                                                anchors.rightMargin: 6
-                                                text: modelData.label
-                                                color: "#ccc"
+                                                id: dirSelLabel
+                                                anchors.centerIn: parent
+                                                text: card.selectedDirectiveId === "" ? "none selected" : card.selectedDirectiveTitle()
+                                                color: card.selectedDirectiveId === "" ? "#777" : "#8ab4f8"
                                                 font.pixelSize: 10
-                                                elide: Text.ElideRight
                                             }
+                                        }
+                                    }
 
-                                            MouseArea {
-                                                id: keyInjMa
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                onClicked: card.injectSystem(modelData.text)
+                                    Rectangle {
+                                        anchors.right: parent.right
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        height: 20
+                                        radius: 4
+                                        color: card.selectedDirectiveId === "" ? "#2a2a2a" : "#3a6df0"
+                                        opacity: card.selectedDirectiveId === "" ? 0.5 : 1
+                                        width: dirSaveLabel.implicitWidth + 12
+                                        Text {
+                                            id: dirSaveLabel
+                                            anchors.centerIn: parent
+                                            text: "Save"
+                                            color: "#fff"
+                                            font.pixelSize: 10
+                                        }
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            enabled: card.selectedDirectiveId !== ""
+                                            onClicked: card.saveDirectiveText()
+                                        }
+                                    }
+                                }
+
+                                ScrollView {
+                                    id: dirChipScroll
+                                    width: parent.width
+                                    height: 56
+                                    clip: true
+                                    contentWidth: availableWidth
+
+                                    Flow {
+                                        width: dirChipScroll.availableWidth
+                                        spacing: 4
+
+                                        Repeater {
+                                            model: card.filteredComposeDirectives()
+                                            delegate: Rectangle {
+                                                property bool dirOn: card.selectedDirectiveId === modelData.id
+                                                height: 24
+                                                radius: 6
+                                                width: Math.max(104, Math.min(160, Math.floor((dirChipScroll.availableWidth - 4) / 2)))
+                                                color: dirOn ? "#3a6df0" : "#1a1a1a"
+                                                border.width: 1
+                                                border.color: dirOn ? "#8ab4f8" : "#333"
+
+                                                Text {
+                                                    anchors.left: parent.left
+                                                    anchors.leftMargin: 7
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                    width: parent.width - 18
+                                                    elide: Text.ElideRight
+                                                    text: (dirOn ? "✓ " : "") + (modelData.title || modelData.text || "directive")
+                                                    color: dirOn ? "#fff" : "#ccc"
+                                                    font.pixelSize: 10
+                                                }
+
+                                                MouseArea { anchors.fill: parent; onClicked: card.selectDirective(modelData.id) }
                                             }
                                         }
                                     }
                                 }
-                            }
-                        }
 
-                        // System Prompt
-                        Item {
-                            id: systemPromptPane
-                            anchors.top: card.keyInjectionsOpen ? keyInjPanel.bottom : keyInjToggle.bottom
-                            anchors.topMargin: 6
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            height: Math.max(80, (parent.height - (card.keyInjectionsOpen ? (keyInjPanel.height + 34) : 30)) * 0.38)
+                                ScrollView {
+                                    id: dirBoxScroll
+                                    width: parent.width
+                                    height: parent.height - 22 - 56 - 12
+                                    clip: true
 
-                            Rectangle {
-                                anchors.fill: parent
-                                radius: 8
-                                color: "#202020"
-
-                                Column {
-                                    anchors.fill: parent
-                                    anchors.margins: 6
-                                    spacing: 4
-
-                                    Text {
-                                        text: "System Prompt"
-                                        color: "#aaa"
+                                    TextArea {
+                                        id: dirBox
+                                        width: dirBoxScroll.availableWidth
+                                        wrapMode: TextArea.Wrap
+                                        background: Item {}
+                                        color: "#ddd"
                                         font.pixelSize: 11
-                                        font.weight: Font.Medium
-                                    }
-
-                                    ScrollView {
-                                        id: systemPromptScroll
-                                        width: parent.width
-                                        height: parent.height - 20
-                                        clip: true
-
-                                        TextArea {
-                                            width: systemPromptScroll.availableWidth
-                                            wrapMode: TextArea.Wrap
-                                            background: Item {}
-                                            color: "#ddd"
-                                            font.pixelSize: 11
-                                            selectByMouse: true
-                                            text: card.systemPromptText
-                                            onTextChanged: {
-                                                if (text !== card.systemPromptText) card.systemPromptText = text
-                                            }
-                                            placeholderText: "System prompt..."
+                                        selectByMouse: true
+                                        enabled: card.selectedDirectiveId !== ""
+                                        text: card.directiveText
+                                        onTextChanged: {
+                                            if (text !== card.directiveText) card.directiveText = text
                                         }
+                                        placeholderText: card.selectedDirectiveId === "" ? "Select a directive above…" : "Directive text…"
                                     }
                                 }
                             }
@@ -1686,7 +1921,7 @@ Item {
 
                         // User Prompt (with library)
                         Item {
-                            anchors.top: systemPromptPane.bottom
+                            anchors.top: directivesPane.bottom
                             anchors.topMargin: 6
                             anchors.left: parent.left
                             anchors.right: parent.right
@@ -1745,7 +1980,7 @@ Item {
                                                 text: "Copy"
                                                 bordered: true
                                                 onClicked: {
-                                                    Quickshell.clipboardText = card.draftText + (card.systemPromptText !== "" ? ("\n\n[System]: " + card.systemPromptText) : "")
+                                                    Quickshell.clipboardText = card.draftText + (card.directiveText !== "" ? ("\n\n[Directive]: " + card.directiveText) : "")
                                                     card.setStatus("Copied system + user prompt")
                                                 }
                                             }
@@ -2081,6 +2316,290 @@ Item {
                         text: card.library.length === 0
                             ? "Library is empty — save prompts from the Sessions tab"
                             : "No library items match the current filters"
+                        color: "#666"
+                        font.pixelSize: 13
+                    }
+                }
+            }
+
+            Component {
+                id: directivesView
+
+                Item {
+                    anchors.fill: parent
+
+                    Row {
+                        id: dirToolbar
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        spacing: 8
+
+                        Text {
+                            text: "Directives"
+                            color: "#ccc"
+                            font.pixelSize: 14
+                            height: 28
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        Button { text: "Export JSON"; bordered: true; onClicked: dirExportJsonProc.running = true }
+                        Button { text: "Export MD"; bordered: true; onClicked: dirExportMdProc.running = true }
+                        Button { text: "Import"; bordered: true; onClicked: dirImportDialog.running = true }
+                    }
+
+                    Flow {
+                        id: dirTagFlow
+                        anchors.top: dirToolbar.bottom
+                        anchors.topMargin: 8
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        spacing: 6
+
+                        Repeater {
+                            model: card.directiveTags()
+                            delegate: Rectangle {
+                                height: 24
+                                radius: 12
+                                width: dirTagLabel.implicitWidth + 16
+                                color: card.directiveTagFilter === modelData ? "#3a6df0" : "#252525"
+                                Text {
+                                    id: dirTagLabel
+                                    anchors.centerIn: parent
+                                    text: "#" + modelData
+                                    color: "white"
+                                    font.pixelSize: 11
+                                }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: card.directiveTagFilter = card.directiveTagFilter === modelData ? "" : modelData
+                                }
+                            }
+                        }
+                    }
+
+                    ScrollView {
+                        id: dirScroll
+                        anchors.top: dirTagFlow.bottom
+                        anchors.topMargin: 8
+                        anchors.bottom: dirComposer.top
+                        anchors.bottomMargin: 8
+                        anchors.left: parent.left
+                        anchors.leftMargin: 10
+                        anchors.right: parent.right
+                        anchors.rightMargin: 10
+                        clip: true
+                        contentWidth: availableWidth
+
+                        Flow {
+                            id: dirGrid
+                            width: dirScroll.availableWidth
+                            spacing: 6
+
+                            Repeater {
+                                id: dirRepeater
+                                model: card.filteredDirectives()
+                                delegate: Rectangle {
+                                    id: dirCard
+                                    property bool dirty: false
+                                    property bool deleteArmed: false
+                                    property bool selected: card.selectedDirectiveId === modelData.id
+
+                                    width: Math.floor((dirScroll.availableWidth - 6) / 2)
+                                    height: 210
+                                    radius: 8
+                                    color: "#202020"
+                                    border.width: 1
+                                    border.color: dirCard.selected ? "#8ab4f8" : (dirCard.dirty ? "#3a6df0" : "#2e2e2e")
+
+                                    Column {
+                                        id: dirCardCol
+                                        anchors.top: parent.top
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.margins: 8
+                                        spacing: 4
+
+                                        TextField {
+                                            id: dirTitleField
+                                            width: parent.width
+                                            height: 24
+                                            placeholderText: "Title"
+                                            text: modelData.title || ""
+                                            onTextChanged: dirCard.dirty = (text !== (modelData.title || "") || dirBodyEditor.text !== (modelData.text || ""))
+                                            background: Rectangle { color: "#1a1a1a"; radius: 4 }
+                                            color: "white"
+                                            font.pixelSize: 12
+                                        }
+
+                                        ScrollView {
+                                            id: dirEditScroll
+                                            width: parent.width
+                                            height: 84
+                                            clip: true
+
+                                            TextArea {
+                                                id: dirBodyEditor
+                                                width: dirEditScroll.availableWidth
+                                                wrapMode: TextArea.Wrap
+                                                background: Item {}
+                                                color: "#ddd"
+                                                font.pixelSize: 11
+                                                selectByMouse: true
+                                                text: modelData.text || ""
+                                                onTextChanged: dirCard.dirty = (dirTitleField.text !== (modelData.title || "") || text !== (modelData.text || ""))
+                                            }
+                                        }
+
+                                        Flow {
+                                            width: parent.width
+                                            height: 14
+                                            clip: true
+                                            spacing: 4
+
+                                            Repeater {
+                                                model: modelData.tags || []
+                                                delegate: Text {
+                                                    text: "#" + modelData
+                                                    color: "#8ab4f8"
+                                                    font.pixelSize: 10
+                                                }
+                                            }
+                                        }
+
+                                        Text {
+                                            text: new Date(modelData.created_at).toLocaleString()
+                                            color: "#888"
+                                            font.pixelSize: 10
+                                        }
+                                    }
+
+                                    Row {
+                                        anchors.left: parent.left
+                                        anchors.leftMargin: 8
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: 8
+                                        anchors.bottom: parent.bottom
+                                        anchors.bottomMargin: 8
+                                        spacing: 6
+
+                                        Button {
+                                            text: dirCard.selected ? "Selected" : "Select"
+                                            onClicked: card.selectDirective(modelData.id)
+                                        }
+
+                                        Button {
+                                            text: "Save"
+                                            enabled: dirCard.dirty
+                                            opacity: dirCard.dirty ? 1 : 0.4
+                                            onClicked: card.updateDirectiveItem(modelData.id, dirTitleField.text, dirBodyEditor.text)
+                                        }
+
+                                        Button {
+                                            visible: dirCard.dirty
+                                            text: "Revert"
+                                            onClicked: {
+                                                dirTitleField.text = modelData.title || ""
+                                                dirBodyEditor.text = modelData.text || ""
+                                                dirCard.dirty = false
+                                            }
+                                        }
+
+                                        Button {
+                                            text: dirCard.deleteArmed ? "Confirm?" : "Delete"
+                                            onClicked: {
+                                                if (dirCard.deleteArmed) {
+                                                    card.deleteDirectiveItem(modelData.id)
+                                                } else {
+                                                    dirCard.deleteArmed = true
+                                                    dirDelDisarm.restart()
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Timer {
+                                        id: dirDelDisarm
+                                        interval: 4000
+                                        onTriggered: dirCard.deleteArmed = false
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        id: dirComposer
+                        anchors.left: parent.left
+                        anchors.leftMargin: 10
+                        anchors.right: parent.right
+                        anchors.rightMargin: 10
+                        anchors.bottom: parent.bottom
+                        height: 34
+                        radius: 6
+                        color: "#252525"
+
+                        TextField {
+                            id: dirNewTitleField
+                            anchors.left: parent.left
+                            anchors.leftMargin: 6
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 220
+                            height: 24
+                            placeholderText: "New directive title…"
+                            text: card.directiveNewTitle
+                            onTextChanged: card.directiveNewTitle = text
+                            background: Rectangle { color: "#1a1a1a"; radius: 6 }
+                            color: "white"
+                            font.pixelSize: 12
+                        }
+
+                        TextField {
+                            id: dirNewBodyField
+                            anchors.left: dirNewTitleField.right
+                            anchors.leftMargin: 6
+                            anchors.right: dirAddBtn.left
+                            anchors.rightMargin: 6
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: 24
+                            placeholderText: "Body… (#tags extracted — Enter to add)"
+                            text: card.directiveNewBody
+                            onTextChanged: card.directiveNewBody = text
+                            onAccepted: card.addDirective()
+                            background: Rectangle { color: "#1a1a1a"; radius: 6 }
+                            color: "white"
+                            font.pixelSize: 12
+                        }
+
+                        Button {
+                            id: dirAddBtn
+                            text: "Add"
+                            bordered: true
+                            anchors.right: parent.right
+                            anchors.rightMargin: 6
+                            anchors.verticalCenter: parent.verticalCenter
+                            onClicked: card.addDirective()
+                        }
+
+                        Connections {
+                            target: card
+                            function onDirectiveNewTitleChanged() {
+                                if (dirNewTitleField.text !== card.directiveNewTitle)
+                                    dirNewTitleField.text = card.directiveNewTitle
+                            }
+                            function onDirectiveNewBodyChanged() {
+                                if (dirNewBodyField.text !== card.directiveNewBody)
+                                    dirNewBodyField.text = card.directiveNewBody
+                            }
+                        }
+                    }
+
+                    Text {
+                        anchors.centerIn: parent
+                        visible: dirRepeater.count === 0
+                        text: card.directives.length === 0
+                            ? "No directives yet — add one below"
+                            : "No directives match the current filter"
                         color: "#666"
                         font.pixelSize: 13
                     }
