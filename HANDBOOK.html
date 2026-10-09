@@ -166,11 +166,11 @@ hr{border:0;border-top:1px solid var(--line);margin:30px 0}
 <h3>Compose pane (right column)</h3>
 <ul class="check">
   <li><b>System Prompts</b> — a disabled "coming soon" strip reserved for OpenCode's own standing instructions (separate feature; not yet implemented).</li>
-  <li><b>Directives</b> — 6 seeded starter templates (Code Review, Debug Helper, Doc Writer, Refactor Guide, Test Generator, Security Audit) shown as single-select chips; the chosen directive's text appears in the editable box below. Click the active chip to deselect.</li>
+    <li><b>Directives</b> — 6 seeded starter templates (Code Review, Debug Helper, Doc Writer, Refactor Guide, Test Generator, Security Audit) shown as single-select chips; the chosen directive's text appears in the editable box below. Click the active chip to deselect. The pane has its own <b>Search directives to toggle…</b> field between the chips and the box.</li>
   <li><b>Directive</b> box + <b>User Prompt</b> editor, with an inline <b>Library</b> chip that opens a saved-prompt picker in place.</li>
-  <li><b>Copy / Save to Library / Clear</b> — right-aligned in the User Prompt header, aligned with the search bars.</li>
-  <li><b>Skill chips</b> — toggle skills on/off; each chip shows the emoji and border colour you chose in the Skills tab (22 emoji, 24 colours, custom emoji allowed).</li>
-  <li><b>Skill search</b> in header row 2 (same height as the session search) — "Search skills to toggle…".</li>
+  <li><b>Copy / Save to Library / Clear</b> — right-aligned in the User Prompt header.</li>
+  <li><b>Skill chips</b> — toggle skills on/off; each chip shows the emoji and border colour you chose in the Skills tab (22 emoji, 24 colours, custom emoji allowed). The skills pane carries its own <b>Search skills to toggle…</b> field in its header.</li>
+  <li><b>Skill search</b> lives <b>inside the Skills pane</b> (not in the top header) — "Search skills to toggle…", and the <b>Directives pane</b> similarly carries "Search directives to toggle…".</li>
   <li>Selected skills are injected as a <code>Skills to use: …</code> directive into the payload.</li>
 </ul>
 
@@ -185,8 +185,6 @@ hr{border:0;border-top:1px solid var(--line);margin:30px 0}
   <li>The exporter re-runs automatically after a send so new prompts appear immediately.</li>
 </ul>
 
-<h3>Skills tab, Library, Stats, Dataset</h3>
-<ul class="check">
 <h3>Library, Directives, Skills, Stats, Dataset tabs</h3>
 <ul class="check">
   <li><b>Skills tab</b> (<kbd>Ctrl</kbd>+<kbd>5</kbd>) — one card per skill, 2 per row: name (centred), description, 22-emoji palette, custom emoji field, 24-colour palette, <b>reset</b>. Persists to <code>skill_styles.json</code>.</li>
@@ -232,7 +230,7 @@ hr{border:0;border-top:1px solid var(--line);margin:30px 0}
 ./install.sh install      # copy plugin/ → ~/.config/omarchy/plugins/&lt;id&gt;/, validate, rescan
 ./install.sh update       # re-copy after pulling new code (never clobbers your prompts.json)</code></pre>
 
-<p><code>install.sh</code> reads the plugin id straight out of <code>plugin/manifest.json</code>, backs up an existing <code>prompts.json</code> before copying (so your prompt library survives), runs <code>omarchy plugin validate</code>, and calls <code>omarchy-shell shell rescanPlugins</code>. The alternative one-liner from the Omarchy cheatsheet is <code>omarchy plugin add &lt;repo-url&gt; --enable</code>.</p>
+<p><code>install.sh</code> reads the plugin id straight out of <code>plugin/manifest.json</code>, backs up an existing <code>prompts.json</code> and <code>directives.json</code> before copying (so your prompt library and directives survive), runs <code>omarchy plugin validate</code>, and calls <code>omarchy-shell shell rescanPlugins</code>. The alternative one-liner from the Omarchy cheatsheet is <code>omarchy plugin add &lt;repo-url&gt; --enable</code>.</p>
 
 <h3>Start the 30-second exporter timer</h3>
 <pre><code>systemctl --user enable --now opencode-sessions-exporter.timer
@@ -243,7 +241,7 @@ systemctl --user list-timers opencode-sessions-exporter.timer   # NEXT/LAST shou
 <ul>
   <li>Click the <b>OC</b> pill in the Omarchy bar, or</li>
   <li><code>omarchy-shell shell summon io.github.aroehrscheid-lsrmnky.opencode-sessions '{}'</code></li>
-  <li>Close with <kbd>Esc</kbd> or by clicking the dimmed backdrop.</li>
+  <li>Closes with <kbd>Esc</kbd> or the bar widget only — clicking the dimmed backdrop is <b>ignored</b> so a stray miss-click can't dismiss the panel.</li>
 </ul>
 
 <h3>What appears on disk</h3>
@@ -265,7 +263,7 @@ systemctl --user list-timers opencode-sessions-exporter.timer   # NEXT/LAST shou
   <li><b>Read the history.</b> Type in <b>Search all sessions…</b> to search every prompt at once (clear it to return to the active session's list). Each row shows the full timestamp; <b>⧉</b> copies just the prompt.</li>
   <li><b>Open an answer.</b> Click a prompt that has one → the <b>Answer</b> pane replaces the list in the left column. Step through with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>←</kbd>/<kbd>→</kbd>, adjust font/size, hit <b>Refresh</b> if the answer came in late, and <b>List</b> to go back.</li>
   <li><b>Compose on the right.</b> Pick a <b>Directive</b> chip for a standing instruction (its text fills the box below), then type (or load from the <b>Library</b> chip) your user prompt. <b>Copy</b> puts directive+user on the clipboard, <b>Save to Library</b> stores it (extracting <code>#tags</code>), <b>Clear</b> empties the draft.</li>
-  <li><b>Toggle skills.</b> Click chips to turn them on — they contribute a <code>Skills to use: …</code> line. Use the header search to find one quickly, and the <b>Skills</b> tab (<kbd>Ctrl</kbd>+<kbd>5</kbd>) to recolour/re-emoji them.</li>
+  <li><b>Toggle skills.</b> Click chips to turn them on — they contribute a <code>Skills to use: …</code> line. Use the search box inside the Skills pane to find one quickly, and the <b>Skills</b> tab (<kbd>Ctrl</kbd>+<kbd>5</kbd>) to recolour/re-emoji them.</li>
   <li><b>Choose the run options.</b> <b>Build</b> or <b>Plan</b> agent; <b>✨ Clean-up</b> on = BODI merges everything into one self-contained instruction first; <b>● Record</b> on = the send is appended to the training log.</li>
   <li><b>Send.</b> <b>Send</b> (<kbd>Ctrl</kbd>+<kbd>Enter</kbd>) continues the selected session; <b>New Session ▶</b> starts a fresh one. Watch the status line: <code>MODE: attach http://127.0.0.1:4096</code> + <code>Sent</code> means the prompt is already visible in your open TUI (requires launching it as <code>opencode --port 4096</code>); <code>MODE: local (…)</code> means it was written to the shared store instead — switch sessions in the TUI to see it.</li>
   <li><b>Check the data.</b> Open the <b>Dataset</b> tab to see the record count and export ShareGPT + Alpaca JSON when you want to train on it.</li>
@@ -284,7 +282,7 @@ systemctl --user list-timers opencode-sessions-exporter.timer   # NEXT/LAST shou
 <table>
   <tr><th>Region</th><th>Behaviour</th></tr>
   <tr><td>Header row 1</td><td>Six tabs; active tab is blue. Title on the left.</td></tr>
-  <tr><td>Header row 2</td><td><b>Sessions</b>/<b>Answers</b> sub-tabs + <b>★ Bookmarked</b> + <b>Search session titles…</b> (right-aligned at the left column's edge) — and on the right half, <b>Skills (n selected)</b> + <b>Search directives…</b> + <b>Search skills to toggle…</b> (right-aligned to the pane edge).</td></tr>
+  <tr><td>Header row 2</td><td><b>Sessions</b>/<b>Answers</b> sub-tabs + <b>★ Bookmarked</b> + <b>Search session titles…</b> (right-aligned at the left column's edge). The skills and directives search boxes are no longer here — each lives inside its own pane on the right.</td></tr>
   <tr><td>Session chips</td><td>Wrapped row; click to select, ★ to bookmark, blue = active. Hidden when <b>★ Bookmarked</b> is active and a session isn't starred.</td></tr>
   <tr><td>Recent Prompts</td><td>List of the active session's prompts (all sessions while searching), newest first, timestamps in full locale form, ⧉ copy per row.</td></tr>
   <tr><td>Skill chips</td><td>Fixed ~148 px wide, 3 per row; <b>on</b> = filled with the skill's colour, <b>off</b> = dark with the same colour as border.</td></tr>
@@ -429,7 +427,7 @@ import Quickshell.Io
 import qs.Ui                 // last: Omarchy's own UI types (BarWidget, WidgetButton)</code></pre>
 <ul>
   <li><b>7–20</b> — root <code>Item</code> with <code>open()</code>/<code>close()</code>; close asks the shell to hide the manifest id.</li>
-  <li><b>21–34</b> — <code>PanelWindow</code>: namespace <code>opencode-sessions-panel</code>, layer <code>Overlay</code>, <code>keyboardFocus: OnDemand</code>, anchored to all four edges, transparent, with a 60 %-black backdrop <code>MouseArea</code> that closes on click.</li>
+  <li><b>21–34</b> — <code>PanelWindow</code>: namespace <code>opencode-sessions-panel</code>, layer <code>Overlay</code>, <code>keyboardFocus: OnDemand</code>, anchored to all four edges, transparent, with a 60 %-black backdrop <code>MouseArea</code> that <b>swallows</b> stray clicks (it no longer closes the panel — close with <kbd>Esc</kbd> or the bar widget).</li>
   <li><b>35–42</b> — <code>Rectangle id: card</code>: <b>1280×820</b>, radius 12, <code>#1e1e1e</code>, centred. Every layout measurement below is relative to this card (margins 12 → content x = 332…1588 on a 1920-wide screen).</li>
 </ul>
 
@@ -499,22 +497,21 @@ import qs.Ui                 // last: Omarchy's own UI types (BarWidget, WidgetB
   <tr><td class="file">exportDatasetProc</td><td><code>export_dataset.py</code></td><td>Dataset → Export</td></tr>
 </table>
 
-<h3>8.6 Header + tabs (lines 712–944)</h3>
+<h3>8.6 Header + tabs (lines 882–1103)</h3>
 <ul>
-  <li><b>712–726</b> — the 15 <code>Shortcut</code>s (table in §2).</li>
-  <li><b>728–895</b> — <code>headerCol</code> (Column, margins 12, spacing 8): title (736, text 737) → tab row Item 743–770 (the six tab pills in an unnamed Row at 747, each setting <code>viewMode</code>) → sub row Item 772–894 (visible on Main/Skills), which spans the <i>full</i> header width but holds two independent halves via a zero-height marker item <code>leftColEdge</code> (777, width = <code>card.leftPaneWidth</code>, the 42 % split):
+  <li><b>882–895</b> — the <code>Shortcut</code>s (table in §2).</li>
+  <li><b>899–1053</b> — <code>headerCol</code> (Column, margins 12, spacing 8): title → tab row (the six tab pills in a Row, each setting <code>viewMode</code>) → sub row (visible on Main/Skills), which spans the <i>full</i> header width but holds two independent halves via a zero-height marker item <code>leftColEdge</code> (949, width = <code>card.leftPaneWidth</code>, the 42 % split):
     <ul>
-      <li>left half: <b>Sessions</b>/<b>Answers</b> pills (Row 785), <b>★ Bookmarked</b> (825), and the session-title search (860) anchored to <code>leftColEdge.right</code> (so it ends exactly at the left column's right edge);</li>
-      <li>right half (Main): <b>Skills (n selected)</b> label, the compose directive search, and the compose skill search, chained to the row's right edge; on the Skills tab instead: <b>Skill Appearance (n)</b> + the skill search anchored to <code>leftColEdge.right</code>.</li>
-    </ul>
-    This is why all searches in row 2 share one baseline.</li>
-  <li><b>897–933</b> — <code>contentArea</code> with the six <code>Loader</code>s (sessionsView, libraryView, directivesView, skillsEditView, statsView, datasetView); the status toast Text follows below.</li>
+      <li>left half: <b>Sessions</b>/<b>Answers</b> pills, <b>★ Bookmarked</b>, and the session-title search (1031) anchored to <code>leftColEdge.right</code> (so it ends exactly at the left column's right edge);</li>
+      <li>right half (Main): the <b>Skills (n selected)</b> label only — the compose skill/directive search boxes were moved <i>into</i> their panes (skills pane search at 1710, directives pane search at 1861); on the Skills tab (<code>viewMode 3</code>) instead: <b>Skill Appearance (n)</b> + the skill search (1045).</li>
+    </ul></li>
+  <li><b>1055–1103</b> — <code>contentArea</code> with the six <code>Loader</code>s (sessionsView, libraryView, directivesView, skillsEditView, statsView, datasetView); the status toast Text follows below.</li>
 </ul>
 
 <h3>8.7 The six Components</h3>
 <table>
   <tr><th>Component</th><th>Line</th><th>Internal structure</th></tr>
-  <tr><td class="file">sessionsView</td><td>946</td><td>Two columns: <b>left</b> (<code>leftPane</code> 953) session chips → <code>recentLabel</code>/<code>searchField</code> (1093/1107) → prompt list <i>or</i> the answer view (1231) with the selected-prompt box, counter, nav, font row, refresh; <b>right</b> Send bar <code>buttonBar</code> (bottom) → <b>System Prompts</b> reserved strip <code>systemPromptsPane</code> (44 px, disabled "coming soon" placeholder) → Skills pane <code>skillsPane</code> (76 px) → Directives pane <code>directivesPane</code> (200 px: title + selected-name pill + Save, single-select chip <code>Flow</code>, and the editable box bound to <code>card.directiveText</code>) → User Prompt header (label + Library chip left, Copy/Save/Clear right) → inline library picker (<code>inlineLibPicker</code>) — the only place a library item is inserted into the draft.</td></tr>
+  <tr><td class="file">sessionsView</td><td>1135</td><td>Two columns: <b>left</b> (<code>leftPane</code>) session chips → <code>recentLabel</code>/<code>searchField</code> → prompt list <i>or</i> the answer view with the selected-prompt box, counter, nav, font row, refresh; <b>right</b> Send bar <code>buttonBar</code> (bottom) → <b>System Prompts</b> reserved strip <code>systemPromptsPane</code> (44 px, disabled "coming soon" placeholder) → Skills pane <code>skillsPane</code> (100 px: "Skills" label + <b>Search skills to toggle…</b> field, then the toggle-chip <code>Flow</code>) → Directives pane <code>directivesPane</code> (224 px: title + selected-name pill + Save, <b>Search directives to toggle…</b>, single-select chip <code>Flow</code>, and the editable box bound to <code>card.directiveText</code>) → User Prompt header (label + Library chip left, Copy/Save/Clear right) → inline library picker (<code>inlineLibPicker</code>) — the only place a library item is inserted into the draft.</td></tr>
   <tr><td class="file">libraryView</td><td>1845</td><td>Toolbar <code>libToolbar</code> (Prompt Library + Export JSON / Export MD / Import) → tag chips <code>tagFlow</code> → <code>libScroll</code> holding a 2-per-row <code>Flow</code> <code>libGrid</code> of editable cards (<code>libRepeater</code>: width <code>floor((availableWidth-6)/2)</code>, height 180, internal <code>ScrollView</code> editor, tags Flow, created-at date, <b>Save</b>/<b>Revert</b> + two-step <b>Delete</b> with a 4 s disarm timer; dirty cards get a blue border) → fixed bottom composer <code>libComposer</code> (one-line <code>libNewField</code> + <b>Add</b>, <code>Enter</code> also adds) → empty-state Text. No click-to-insert: cards edit, they do not paste.</td></tr>
   <tr><td class="file">directivesView</td><td>~2325</td><td>Direct mirror of <code>libraryView</code> for directives: toolbar (Directives + Export JSON / Export MD / Import) → tag chips <code>dirTagFlow</code> (uses <code>directiveTagFilter</code>) → 2-per-row cards (<code>dirRepeater</code>, height 210) each with a <b>Title</b> field, a body editor, tags, date, and a <b>Select</b>/<b>Selected</b> button (blue border when it is the active directive) plus Save/Revert/Delete → bottom composer <code>dirComposer</code> (title field + body field + <b>Add</b>).</td></tr>
   <tr><td class="file">skillsEditView</td><td>2091</td><td>Toolbar text → <code>skillsEditScroll</code> → <code>Flow</code> of 2-per-row cards (width <code>floor((availableWidth-6)/2)</code>, height 92) built from <code>filteredSkills()</code>.</td></tr>
@@ -735,10 +732,11 @@ journalctl --user --since '-15 sec' | grep -i 'Panel.qml'</code></pre>
   <tr><th>Element</th><th>Geometry</th></tr>
   <tr><td>Card</td><td>x 320…1600, y 143…963 (centred, margins 12 → content x 332…1588)</td></tr>
   <tr><td>Header row 1 (tabs)</td><td>y ≈ 185…213, active pill 332…431</td></tr>
-  <tr><td>Header row 2 (sub-tabs + searches)</td><td>y ≈ 221…245; session search x 646…846; skill-toggle search x 1382…1581</td></tr>
+  <tr><td>Header row 2 (sub-tabs + session search)</td><td>y ≈ 221…245; session search x 646…846 (the skill/directive search boxes now live inside their right-column panes)</td></tr>
   <tr><td>contentArea</td><td>top y 249; left column width <code>max(360, (1256-8)*0.42)</code> = 524 → 332…856; right pane ≈ 864…1587</td></tr>
-  <tr><td>Skills pane (compose)</td><td>76 px tall at the top of the right pane (chips start y 255)</td></tr>
-  <tr><td>User Prompt header</td><td>label+chip left at x 870…984; Copy/Save/Clear right edge 1581 (aligned with the search bars)</td></tr>
+  <tr><td>Skills pane (compose)</td><td>100 px tall at the top of the right pane (title row + "Search skills to toggle…" field, then the chip flow)</td></tr>
+  <tr><td>Directives pane (compose)</td><td>224 px tall below the Skills pane (title + selected pill + Save, "Search directives to toggle…" field, chip row, editable box)</td></tr>
+  <tr><td>User Prompt header</td><td>label+chip left at x 870…984; Copy/Save/Clear right edge 1581</td></tr>
   <tr><td>Send bar</td><td>34 px tall at the bottom, Row centred at x ≈ 1225.5</td></tr>
   <tr><td>Skill chips</td><td>148 px wide (min 104 / max 152), 3 per row, 26 px tall</td></tr>
 </table>

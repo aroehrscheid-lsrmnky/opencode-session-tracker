@@ -29,7 +29,8 @@ Item {
         Rectangle {
             anchors.fill: parent
             color: Qt.rgba(0, 0, 0, 0.6)
-            MouseArea { anchors.fill: parent; onClicked: root.close() }
+            // Swallow stray clicks so they never dismiss the panel; close via Esc or the bar widget only.
+            MouseArea { anchors.fill: parent; onClicked: {} }
         }
 
         Rectangle {
@@ -1047,35 +1048,6 @@ Item {
                         color: "white"
                         font.pixelSize: 11
                     }
-
-                    TextField {
-                        id: composeSkillSearchField
-                        visible: card.viewMode === 0
-                        anchors.right: parent.right
-                        anchors.rightMargin: 6
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 200
-                        height: 24
-                        placeholderText: "Search skills to toggle..."
-                        onTextChanged: card.composeSkillSearchText = text
-                        background: Rectangle { color: "#252525"; radius: 6 }
-                        color: "white"
-                        font.pixelSize: 11
-                    }
-
-                    TextField {
-                        visible: card.viewMode === 0
-                        anchors.right: composeSkillSearchField.left
-                        anchors.rightMargin: 6
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 190
-                        height: 24
-                        placeholderText: "Search directives..."
-                        onTextChanged: card.directiveSearchText = text
-                        background: Rectangle { color: "#252525"; radius: 6 }
-                        color: "white"
-                        font.pixelSize: 11
-                    }
                 }
             }
 
@@ -1707,7 +1679,7 @@ Item {
                             anchors.topMargin: 6
                             anchors.left: parent.left
                             anchors.right: parent.right
-                            height: 76
+                            height: 100
                             radius: 8
                             color: "#202020"
 
@@ -1716,10 +1688,37 @@ Item {
                                 anchors.margins: 6
                                 spacing: 4
 
+                                Item {
+                                    width: parent.width
+                                    height: 22
+
+                                    Text {
+                                        anchors.left: parent.left
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: "Skills"
+                                        color: "#aaa"
+                                        font.pixelSize: 11
+                                        font.weight: Font.Medium
+                                    }
+
+                                    TextField {
+                                        id: composeSkillSearchField
+                                        anchors.right: parent.right
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: Math.min(220, parent.width - 60)
+                                        height: 22
+                                        placeholderText: "Search skills to toggle..."
+                                        onTextChanged: card.composeSkillSearchText = text
+                                        background: Rectangle { color: "#252525"; radius: 6 }
+                                        color: "white"
+                                        font.pixelSize: 11
+                                    }
+                                }
+
                                 ScrollView {
                                     id: skillsScroll
                                     width: parent.width
-                                    height: parent.height - 12
+                                    height: parent.height - 22 - 4
                                     clip: true
                                     contentWidth: availableWidth
 
@@ -1791,7 +1790,7 @@ Item {
                             anchors.topMargin: 6
                             anchors.left: parent.left
                             anchors.right: parent.right
-                            height: 200
+                            height: 224
                             radius: 8
                             color: "#202020"
 
@@ -1855,6 +1854,17 @@ Item {
                                     }
                                 }
 
+                                TextField {
+                                    id: composeDirectiveSearchField
+                                    width: parent.width
+                                    height: 22
+                                    placeholderText: "Search directives to toggle..."
+                                    onTextChanged: card.directiveSearchText = text
+                                    background: Rectangle { color: "#252525"; radius: 6 }
+                                    color: "white"
+                                    font.pixelSize: 11
+                                }
+
                                 ScrollView {
                                     id: dirChipScroll
                                     width: parent.width
@@ -1897,7 +1907,7 @@ Item {
                                 ScrollView {
                                     id: dirBoxScroll
                                     width: parent.width
-                                    height: parent.height - 22 - 56 - 12
+                                    height: parent.height - 112
                                     clip: true
 
                                     TextArea {

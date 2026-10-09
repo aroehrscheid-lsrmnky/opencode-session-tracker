@@ -38,6 +38,7 @@ python3 ~/documents/opencode-session-tracker/plugin/scripts/import_directives.py
 - [ ] Answer navigation: Ctrl+Shift+Left/Right, font size/family controls, Refresh
 - [ ] Bookmark star + bookmark filter pill work
 - [ ] Right pane: a directive chip selects/deselects, the directive box edits the selected text, user prompt edits, skills chips toggle
+- [ ] Search boxes live **inside** their panes (not the header): "Search skills to toggle…" in the Skills pane, "Search directives to toggle…" in the Directives pane; each filters its own chips
 - [ ] Save to Library writes prompts.json with `#tags` extracted
 
 ### Send bar
@@ -78,6 +79,11 @@ python3 ~/documents/opencode-session-tracker/plugin/scripts/import_directives.py
 ### Dataset tab (Ctrl+7)
 - [ ] Record count matches `training.jsonl`
 - [ ] Export creates ShareGPT + Alpaca JSON
+
+### Panel dismissal
+- [ ] `Esc` closes panel
+- [ ] Clicking the dimmed backdrop does **not** close the panel (stray miss-clicks are ignored); toggling a directive chip on the Main tab keeps it open
+- [ ] The bar **OC** pill still toggles it open/closed
 
 ### Shortcuts
 - [ ] `Esc` closes panel
