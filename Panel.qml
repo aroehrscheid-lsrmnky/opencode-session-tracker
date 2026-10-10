@@ -18,6 +18,48 @@ Item {
         if (shell && manifest && typeof shell.hide === 'function') shell.hide(manifest.id)
     }
 
+    // House-style button, matching the Send button: accent blue, radius 6,
+    // 24px tall, white 11px label, auto-width from the label.
+    component FlatButton: Rectangle {
+        // Note: no `id` on the root — an inline component's own root id is not
+        // reliably resolvable from inside itself in this Quickshell/Qt build, so
+        // the children address the properties through `parent` instead.
+        property string text: ""
+        property bool primary: true
+        signal clicked()
+
+        implicitHeight: 24
+        radius: 6
+        color: primary
+               ? (hoverArea.containsMouse ? "#2f61d8" : "#3a6df0")
+               : (hoverArea.containsMouse ? "#333" : "#252525")
+        border.width: primary ? 0 : 1
+        border.color: "#3a3a3a"
+        opacity: enabled ? 1 : 0.45
+        width: metrics.width + 20
+
+        TextMetrics {
+            id: metrics
+            font.pixelSize: 11
+            text: parent.text
+        }
+
+        Text {
+            anchors.centerIn: parent
+            text: parent.text
+            color: parent.primary ? "#fff" : "#ccc"
+            font.pixelSize: 11
+        }
+
+        MouseArea {
+            id: hoverArea
+            anchors.fill: parent
+            hoverEnabled: true
+            enabled: parent.enabled
+            onClicked: parent.clicked()
+        }
+    }
+
     PanelWindow {
         visible: root.opened
         WlrLayershell.namespace: "opencode-sessions-panel"
@@ -29,8 +71,22 @@ Item {
         Rectangle {
             anchors.fill: parent
             color: Qt.rgba(0, 0, 0, 0.6)
-            // Swallow stray clicks so they never dismiss the panel; close via Esc or the bar widget only.
-            MouseArea { anchors.fill: parent; onClicked: {} }
+            // Close on a click outside the card, but never on a click that lands
+            // on the card and merely misses an interactive item: this MouseArea
+            // sits under the card, so such clicks arrive here too. Compare the
+            // point against the centred card rect and only dismiss when outside.
+            MouseArea {
+                anchors.fill: parent
+                onClicked: function (mouse) {
+                    var halfW = card.width / 2
+                    var halfH = card.height / 2
+                    var cx = parent.width / 2
+                    var cy = parent.height / 2
+                    var insideCard = Math.abs(mouse.x - cx) <= halfW
+                                  && Math.abs(mouse.y - cy) <= halfH
+                    if (!insideCard) root.close()
+                }
+            }
         }
 
         Rectangle {
@@ -1240,17 +1296,6 @@ Item {
                         font.pixelSize: 12
                     }
 
-                    Text {
-                        visible: card.viewMode === 0
-                        anchors.left: leftColEdge.right
-                        anchors.leftMargin: 8
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "Skills" + (card.selectedSkills.length > 0 ? "  (" + card.selectedSkills.length + " selected)" : "")
-                        color: "#aaa"
-                        font.pixelSize: 11
-                        font.weight: Font.Medium
-                    }
-
                     TextField {
                         visible: card.viewMode === 0
                         anchors.right: leftColEdge.right
@@ -1698,11 +1743,7 @@ Item {
                                     background: Rectangle { color: "#1e1e1e"; radius: 4; border.color: "#3a3a3a"; border.width: 1 }
                                 }
 
-                                Button {
-                                    text: "Refresh"
-                                    bordered: true
-                                    onClicked: card.reloadCurrentAnswer()
-                                }
+                                FlatButton { text: "Refresh"; onClicked: card.reloadCurrentAnswer() }
                             }
 
                             Rectangle {
@@ -2079,15 +2120,22 @@ Item {
                                     }
                                 }
 
-                                TextField {
-                                    id: composeDirectiveSearchField
+                                Item {
                                     width: parent.width
                                     height: 22
-                                    placeholderText: "Search directives to toggle..."
-                                    onTextChanged: card.directiveSearchText = text
-                                    background: Rectangle { color: "#252525"; radius: 6 }
-                                    color: "white"
-                                    font.pixelSize: 11
+
+                                    TextField {
+                                        id: composeDirectiveSearchField
+                                        anchors.right: parent.right
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 200
+                                        height: 22
+                                        placeholderText: "Search directives to toggle..."
+                                        onTextChanged: card.directiveSearchText = text
+                                        background: Rectangle { color: "#252525"; radius: 6 }
+                                        color: "white"
+                                        font.pixelSize: 11
+                                    }
                                 }
 
                                 ScrollView {
@@ -2211,16 +2259,15 @@ Item {
                                             anchors.verticalCenter: parent.verticalCenter
                                             spacing: 6
 
-                                            Button {
+                                            FlatButton {
                                                 text: "Copy"
-                                                bordered: true
                                                 onClicked: {
                                                     Quickshell.clipboardText = card.draftText + (card.directiveText !== "" ? ("\n\n[Directive]: " + card.directiveText) : "")
                                                     card.setStatus("Copied system + user prompt")
                                                 }
                                             }
-                                            Button { text: "Save to Library"; bordered: true; onClicked: card.savePrompt() }
-                                            Button { text: "Clear"; bordered: true; onClicked: card.draftText = "" }
+                                            FlatButton { text: "Save to Library"; onClicked: card.savePrompt() }
+                                            FlatButton { text: "Clear"; onClicked: card.draftText = "" }
                                         }
                                     }
 
@@ -2332,9 +2379,9 @@ Item {
                             verticalAlignment: Text.AlignVCenter
                         }
 
-                        Button { text: "Export JSON"; bordered: true; onClicked: exportJsonProc.running = true }
-                        Button { text: "Export MD"; bordered: true; onClicked: exportMdProc.running = true }
-                        Button { text: "Import"; bordered: true; onClicked: importDialog.running = true }
+                        FlatButton { text: "Export JSON"; onClicked: exportJsonProc.running = true }
+                        FlatButton { text: "Export MD"; onClicked: exportMdProc.running = true }
+                        FlatButton { text: "Import"; onClicked: importDialog.running = true }
                     }
 
                     Flow {
@@ -2459,14 +2506,13 @@ Item {
                                         anchors.bottomMargin: 8
                                         spacing: 6
 
-                                        Button {
+                                        FlatButton {
                                             text: "Save"
                                             enabled: libCard.dirty
-                                            opacity: libCard.dirty ? 1 : 0.4
                                             onClicked: card.updateLibraryItem(modelData.id, libEditEditor.text)
                                         }
 
-                                        Button {
+                                        FlatButton {
                                             visible: libCard.dirty
                                             text: "Revert"
                                             onClicked: {
@@ -2475,7 +2521,7 @@ Item {
                                             }
                                         }
 
-                                        Button {
+                                        FlatButton {
                                             text: libCard.deleteArmed ? "Confirm?" : "Delete"
                                             onClicked: {
                                                 if (libCard.deleteArmed) {
@@ -2526,10 +2572,10 @@ Item {
                             font.pixelSize: 12
                         }
 
-                        Button {
+                        FlatButton {
                             id: libAddBtn
                             text: "Add"
-                            bordered: true
+
                             anchors.right: parent.right
                             anchors.rightMargin: 6
                             anchors.verticalCenter: parent.verticalCenter
@@ -2578,9 +2624,9 @@ Item {
                             verticalAlignment: Text.AlignVCenter
                         }
 
-                        Button { text: "Export JSON"; bordered: true; onClicked: dirExportJsonProc.running = true }
-                        Button { text: "Export MD"; bordered: true; onClicked: dirExportMdProc.running = true }
-                        Button { text: "Import"; bordered: true; onClicked: dirImportDialog.running = true }
+                        FlatButton { text: "Export JSON"; onClicked: dirExportJsonProc.running = true }
+                        FlatButton { text: "Export MD"; onClicked: dirExportMdProc.running = true }
+                        FlatButton { text: "Import"; onClicked: dirImportDialog.running = true }
                     }
 
                     Flow {
@@ -2658,13 +2704,16 @@ Item {
                                         TextField {
                                             id: dirTitleField
                                             width: parent.width
-                                            height: 24
+                                            height: 30
                                             placeholderText: "Title"
                                             text: modelData.title || ""
                                             onTextChanged: dirCard.dirty = (text !== (modelData.title || "") || dirBodyEditor.text !== (modelData.text || ""))
                                             background: Rectangle { color: "#1a1a1a"; radius: 4 }
                                             color: "white"
                                             font.pixelSize: 12
+                                            verticalAlignment: TextInput.AlignVCenter
+                                            leftPadding: 7
+                                            rightPadding: 7
                                         }
 
                                         ScrollView {
@@ -2718,19 +2767,18 @@ Item {
                                         anchors.bottomMargin: 8
                                         spacing: 6
 
-                                        Button {
+                                        FlatButton {
                                             text: dirCard.selected ? "Selected" : "Select"
                                             onClicked: card.selectDirective(modelData.id)
                                         }
 
-                                        Button {
+                                        FlatButton {
                                             text: "Save"
                                             enabled: dirCard.dirty
-                                            opacity: dirCard.dirty ? 1 : 0.4
                                             onClicked: card.updateDirectiveItem(modelData.id, dirTitleField.text, dirBodyEditor.text)
                                         }
 
-                                        Button {
+                                        FlatButton {
                                             visible: dirCard.dirty
                                             text: "Revert"
                                             onClicked: {
@@ -2740,7 +2788,7 @@ Item {
                                             }
                                         }
 
-                                        Button {
+                                        FlatButton {
                                             text: dirCard.deleteArmed ? "Confirm?" : "Delete"
                                             onClicked: {
                                                 if (dirCard.deleteArmed) {
@@ -2806,10 +2854,10 @@ Item {
                             font.pixelSize: 12
                         }
 
-                        Button {
+                        FlatButton {
                             id: dirAddBtn
                             text: "Add"
-                            bordered: true
+
                             anchors.right: parent.right
                             anchors.rightMargin: 6
                             anchors.verticalCenter: parent.verticalCenter
@@ -3046,24 +3094,70 @@ Item {
                 Item {
                     anchors.fill: parent
 
-                    Column {
-                        x: 4
-                        y: 4
-                        spacing: 8
+                    Rectangle {
+                        id: statsPanel
+                        anchors.centerIn: parent
+                        width: Math.min(720, parent.width - 80)
+                        height: statsCol.implicitHeight + 48
+                        radius: 10
+                        color: "#202020"
+                        border.width: 1
+                        border.color: "#2e2e2e"
 
-                        Text { text: "Stats"; color: "#ccc"; font.pixelSize: 14 }
-                        Text { text: "Sessions: " + card.sessions.length; color: "white"; font.pixelSize: 13 }
-                        Text { text: "Library items: " + card.library.length; color: "white"; font.pixelSize: 13 }
-                        Text {
-                            text: "Prompts (last 30d): " + card.sessions.reduce((a, s) =>
-                                a + s.recent_prompts.filter(p => (Date.now() - p.time_created) < 30 * 24 * 3600 * 1000).length, 0)
-                            color: "white"
-                            font.pixelSize: 13
-                        }
-                        Text {
-                            text: "Active session: " + (card.sessions[card.activeSessionIndex] ? card.sessions[card.activeSessionIndex].title : "—")
-                            color: "white"
-                            font.pixelSize: 13
+                        Column {
+                            id: statsCol
+                            anchors.centerIn: parent
+                            width: parent.width - 48
+                            spacing: 10
+
+                            Text {
+                                text: "Stats"
+                                color: "#ccc"
+                                font.pixelSize: 14
+                                font.weight: Font.DemiBold
+                            }
+
+                            Rectangle { width: parent.width; height: 1; color: "#2e2e2e" }
+
+                            Row {
+                                spacing: 12
+                                width: parent.width
+                                Text { text: "Sessions"; color: "#aaa"; font.pixelSize: 13; width: 180 }
+                                Text { text: card.sessions.length; color: "white"; font.pixelSize: 13; font.bold: true }
+                            }
+
+                            Row {
+                                spacing: 12
+                                width: parent.width
+                                Text { text: "Library items"; color: "#aaa"; font.pixelSize: 13; width: 180 }
+                                Text { text: card.library.length; color: "white"; font.pixelSize: 13; font.bold: true }
+                            }
+
+                            Row {
+                                spacing: 12
+                                width: parent.width
+                                Text { text: "Prompts (last 30d)"; color: "#aaa"; font.pixelSize: 13; width: 180 }
+                                Text {
+                                    text: card.sessions.reduce((a, s) =>
+                                        a + s.recent_prompts.filter(p => (Date.now() - p.time_created) < 30 * 24 * 3600 * 1000).length, 0)
+                                    color: "white"
+                                    font.pixelSize: 13
+                                    font.bold: true
+                                }
+                            }
+
+                            Row {
+                                spacing: 12
+                                width: parent.width
+                                Text { text: "Active session"; color: "#aaa"; font.pixelSize: 13; width: 180 }
+                                Text {
+                                    width: parent.width - 180
+                                    text: card.sessions[card.activeSessionIndex] ? card.sessions[card.activeSessionIndex].title : "—"
+                                    color: "white"
+                                    font.pixelSize: 13
+                                    elide: Text.ElideRight
+                                }
+                            }
                         }
                     }
                 }
@@ -3170,17 +3264,13 @@ Item {
 
                             Row {
                                 spacing: 8
-                                Rectangle {
-                                    width: 70; height: 26; radius: 6
-                                    color: saveSp.containsMouse ? "#3a6df0" : "#252525"
-                                    Text { anchors.centerIn: parent; text: "Save"; color: "white"; font.pixelSize: 11 }
-                                    MouseArea { id: saveSp; anchors.fill: parent; hoverEnabled: true; onClicked: card.saveSystemPromptText(promptArea.text) }
+                                FlatButton {
+                                    text: "Save"
+                                    onClicked: card.saveSystemPromptText(promptArea.text)
                                 }
-                                Rectangle {
-                                    width: 70; height: 26; radius: 6
-                                    color: reloadSp.containsMouse ? "#333" : "#252525"
-                                    Text { anchors.centerIn: parent; text: "Reload"; color: "#ccc"; font.pixelSize: 11 }
-                                    MouseArea { id: reloadSp; anchors.fill: parent; hoverEnabled: true; onClicked: sysPromptFile.reload() }
+                                FlatButton {
+                                    text: "Reload"
+                                    onClicked: sysPromptFile.reload()
                                 }
                             }
                         }
@@ -3199,56 +3289,84 @@ Item {
             Component {
                 id: settingsView
 
-                Item {
+Item {
                     anchors.fill: parent
 
-                    Column {
+                    ScrollView {
+                        id: settingsScroll
                         anchors.fill: parent
-                        spacing: 8
+                        anchors.margins: 20
+                        contentWidth: availableWidth
 
-                        Text { text: "Settings"; color: "#ccc"; font.pixelSize: 14 }
+                        Column {
+                            width: Math.min(880, settingsScroll.availableWidth)
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            spacing: 14
 
-                        Rectangle {
-                            width: parent.width
-                            height: checksCol.height + 16
-                            color: "#1b1b1b"
-                            radius: 8
+                            Text {
+                                text: "Settings"
+                                color: "#ccc"
+                                font.pixelSize: 14
+                                font.weight: Font.DemiBold
+                            }
 
-                            Column {
-                                id: checksCol
-                                anchors.left: parent.left
-                                anchors.leftMargin: 10
-                                anchors.top: parent.top
-                                anchors.topMargin: 8
-                                anchors.right: parent.right
-                                anchors.rightMargin: 10
-                                spacing: 3
+                            Rectangle {
+                                width: parent.width
+                                height: checksCol.height + 32
+                                color: "#202020"
+                                radius: 10
+                                border.width: 1
+                                border.color: "#2e2e2e"
 
-                                Repeater {
-                                    model: card.settingsChecks
-                                    delegate: Row {
-                                        spacing: 6
-                                        Text { text: modelData.ok ? "\u2713" : "\u2717"; color: modelData.ok ? "#6c6" : "#c66"; font.pixelSize: 11 }
-                                        Text { text: modelData.label; color: "#ccc"; font.pixelSize: 11; width: 150 }
-                                        Text { text: modelData.path; color: "#888"; font.pixelSize: 10; elide: Text.ElideMiddle; width: 420 }
-                                        Text { text: modelData.ok ? "" : modelData.hint; color: "#c98"; font.pixelSize: 10 }
+                                Column {
+                                    id: checksCol
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 16
+                                    anchors.top: parent.top
+                                    anchors.topMargin: 16
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 16
+                                    spacing: 5
+
+                                    Text {
+                                        text: "Status"
+                                        color: "#aaa"
+                                        font.pixelSize: 11
+                                        font.weight: Font.DemiBold
+                                    }
+
+                                    Repeater {
+                                        model: card.settingsChecks
+                                        delegate: Row {
+                                            spacing: 8
+                                            Text { text: modelData.ok ? "✓" : "✗"; color: modelData.ok ? "#6fcf97" : "#e06c6c"; font.pixelSize: 11; width: 14 }
+                                            Text { text: modelData.label; color: "#ccc"; font.pixelSize: 11; width: 150 }
+                                            Text { text: modelData.path; color: "#888"; font.pixelSize: 10; width: 400; elide: Text.ElideMiddle }
+                                            Text { text: modelData.ok ? "" : modelData.hint; color: "#c98"; font.pixelSize: 10 }
+                                        }
                                     }
                                 }
                             }
                         }
 
                         Column {
-                            spacing: 6
+                            spacing: 8
                             width: parent.width
+
+                            Text { text: "Paths"; color: "#aaa"; font.pixelSize: 11; font.weight: Font.DemiBold }
+                            Text {
+                                width: parent.width
+                                text: "Leave a field empty to use its default. Changing a folder moves the existing files across."
+                                color: "#777"; font.pixelSize: 10; wrapMode: Text.WordWrap
+                            }
 
                             Row {
                                 spacing: 8
                                 Text { text: "Data folder"; color: "#aaa"; font.pixelSize: 11; width: 130; anchors.verticalCenter: parent.verticalCenter }
                                 TextField { id: fData; width: 520; height: 26; color: "white"; font.pixelSize: 11; placeholderText: card.dataDir; background: Rectangle { color: "#252525"; radius: 6 } }
-                                Rectangle {
-                                    width: 60; height: 26; radius: 6; color: openData.containsMouse ? "#333" : "#252525"
-                                    Text { anchors.centerIn: parent; text: "Open"; color: "#ccc"; font.pixelSize: 11 }
-                                    MouseArea { id: openData; anchors.fill: parent; hoverEnabled: true; onClicked: card.openFolder(fData.text || card.dataDir) }
+                                FlatButton {
+                                    text: "Open"
+                                    onClicked: card.openFolder(fData.text || card.dataDir)
                                 }
                             }
 
@@ -3256,10 +3374,9 @@ Item {
                                 spacing: 8
                                 Text { text: "Cache folder"; color: "#aaa"; font.pixelSize: 11; width: 120; anchors.verticalCenter: parent.verticalCenter }
                                 TextField { id: fCache; width: 520; height: 26; color: "white"; font.pixelSize: 11; placeholderText: card.cacheDir; background: Rectangle { color: "#252525"; radius: 6 } }
-                                Rectangle {
-                                    width: 60; height: 26; radius: 6; color: openC.containsMouse ? "#333" : "#252525"
-                                    Text { anchors.centerIn: parent; text: "Open"; color: "#ccc"; font.pixelSize: 11 }
-                                    MouseArea { id: openC; anchors.fill: parent; hoverEnabled: true; onClicked: card.openFolder(fCache.text || card.cacheDir) }
+                                FlatButton {
+                                    text: "Open"
+                                    onClicked: card.openFolder(fCache.text || card.cacheDir)
                                 }
                             }
 
@@ -3267,10 +3384,9 @@ Item {
                                 spacing: 8
                                 Text { text: "Exporter"; color: "#aaa"; font.pixelSize: 11; width: 120; anchors.verticalCenter: parent.verticalCenter }
                                 TextField { id: fExp; width: 520; height: 26; color: "white"; font.pixelSize: 11; placeholderText: card.exporterPath; background: Rectangle { color: "#252525"; radius: 6 } }
-                                Rectangle {
-                                    width: 60; height: 26; radius: 6; color: openE.containsMouse ? "#333" : "#252525"
-                                    Text { anchors.centerIn: parent; text: "Open"; color: "#ccc"; font.pixelSize: 11 }
-                                    MouseArea { id: openE; anchors.fill: parent; hoverEnabled: true; onClicked: card.openFolder(fExp.text || card.exporterPath) }
+                                FlatButton {
+                                    text: "Open"
+                                    onClicked: card.openFolder(fExp.text || card.exporterPath)
                                 }
                             }
 
@@ -3278,10 +3394,9 @@ Item {
                                 spacing: 8
                                 Text { text: "OpenCode database"; color: "#aaa"; font.pixelSize: 11; width: 130; anchors.verticalCenter: parent.verticalCenter }
                                 TextField { id: fDb; width: 520; height: 26; color: "white"; font.pixelSize: 11; placeholderText: card.dbPath; background: Rectangle { color: "#252525"; radius: 6 } }
-                                Rectangle {
-                                    width: 60; height: 26; radius: 6; color: openB.containsMouse ? "#333" : "#252525"
-                                    Text { anchors.centerIn: parent; text: "Open"; color: "#ccc"; font.pixelSize: 11 }
-                                    MouseArea { id: openB; anchors.fill: parent; hoverEnabled: true; onClicked: card.openFolder(fDb.text || card.dbPath) }
+                                FlatButton {
+                                    text: "Open"
+                                    onClicked: card.openFolder(fDb.text || card.dbPath)
                                 }
                             }
                         }
@@ -3289,31 +3404,24 @@ Item {
                         Row {
                             spacing: 8
 
-                            Rectangle {
-                                width: 90; height: 28; radius: 6; color: saveSet.containsMouse ? "#3a6df0" : "#252525"
-                                Text { anchors.centerIn: parent; text: "Save"; color: "white"; font.pixelSize: 11 }
-                                MouseArea { id: saveSet; anchors.fill: parent; hoverEnabled: true; onClicked: card.saveSettingsFrom(fData.text, fCache.text, fExp.text, fDb.text) }
+                            FlatButton {
+                                text: "Save"
+                                onClicked: card.saveSettingsFrom(fData.text, fCache.text, fExp.text, fDb.text)
                             }
-                            Rectangle {
-                                width: 130; height: 28; radius: 6; color: resetSet.containsMouse ? "#333" : "#252525"
-                                Text { anchors.centerIn: parent; text: "Reset to defaults"; color: "#ccc"; font.pixelSize: 11 }
-                                MouseArea {
-                                    id: resetSet; anchors.fill: parent; hoverEnabled: true
-                                    onClicked: {
-                                        fData.text = ""; fCache.text = ""; fExp.text = ""; fDb.text = ""
-                                        card.settingsDefaults()
-                                    }
+                            FlatButton {
+                                text: "Reset to defaults"
+                                onClicked: {
+                                    fData.text = ""; fCache.text = ""; fExp.text = ""; fDb.text = ""
+                                    card.settingsDefaults()
                                 }
                             }
-                            Rectangle {
-                                width: 90; height: 28; radius: 6; color: detSet.containsMouse ? "#333" : "#252525"
-                                Text { anchors.centerIn: parent; text: "Detect"; color: "#ccc"; font.pixelSize: 11 }
-                                MouseArea { id: detectBtn; objectName: "detectBtn"; anchors.fill: parent; hoverEnabled: true; onClicked: card.runDetect() }
+                            FlatButton {
+                                text: "Detect"
+                                onClicked: card.runDetect()
                             }
-                            Rectangle {
-                                width: 90; height: 28; radius: 6; color: repSet.containsMouse ? "#333" : "#252525"
-                                Text { anchors.centerIn: parent; text: "Repair"; color: "#ccc"; font.pixelSize: 11 }
-                                MouseArea { id: repairBtn; objectName: "repairBtn"; anchors.fill: parent; hoverEnabled: true; onClicked: card.runRepair() }
+                            FlatButton {
+                                text: "Repair"
+                                onClicked: card.runRepair()
                             }
                         }
 
@@ -3341,28 +3449,115 @@ Item {
                 Item {
                     anchors.fill: parent
 
-                    ScrollView {
-                        id: howScroll
+                    Rectangle {
                         anchors.fill: parent
+                        anchors.margins: 20
+                        radius: 10
+                        color: "#202020"
+                        border.width: 1
+                        border.color: "#2e2e2e"
 
-                        Text {
-                            width: howScroll.availableWidth
-                            color: "#bbb"
-                            font.pixelSize: 12
-                            wrapMode: Text.WordWrap
-                            textFormat: Text.RichText
-                            text: "<b>Tabs</b><br/>" +
-                                "1 Main &middot; 2 System Prompt &middot; 3 Skills &middot; 4 Directives &middot; 5 Library &middot; 6 Stats &middot; 7 Data &middot; 8 Settings &middot; 9 How-To<br/><br/>" +
-                                "<b>Keyboard</b><br/>" +
-                                "Ctrl+1..9 &mdash; jump to a tab<br/>" +
-                                "Alt+1 &mdash; Sessions &nbsp; Alt+2 &mdash; Answers<br/>" +
-                                "Ctrl+F search &middot; Ctrl+W clear draft &middot; Ctrl+S save prompt &middot; Ctrl+E editor<br/>" +
-                                "Ctrl+Return send &middot; Ctrl+Shift+Left/Right move answer &middot; Esc close<br/><br/>" +
-                                "<b>System Prompt</b><br/>" +
-                                "Edits the instruction files OpenCode merges. The global file is ~/.config/opencode/AGENTS.md.<br/><br/>" +
-                                "<b>Settings</b><br/>" +
-                                "Choose where user data and cache live, point at the exporter and OpenCode database, then Save. " +
-                                "Detect checks every path; Repair creates folders, seeds stores and reinstalls the export timer."
+                        ScrollView {
+                            id: howScroll
+                            anchors.fill: parent
+                            anchors.margins: 24
+                            contentWidth: availableWidth
+
+                            Column {
+                                width: Math.min(860, howScroll.availableWidth)
+                                spacing: 18
+
+                                Text {
+                                    text: "How-To"
+                                    color: "#ccc"
+                                    font.pixelSize: 14
+                                    font.weight: Font.DemiBold
+                                }
+
+                                Rectangle { width: parent.width; height: 1; color: "#2e2e2e" }
+
+                                // ---------- Tabs ----------
+                                Column {
+                                    width: parent.width
+                                    spacing: 4
+                                    Text { text: "Tabs"; color: "#ccc"; font.pixelSize: 13; font.weight: Font.DemiBold }
+                                    Text {
+                                        width: parent.width
+                                        text: "1 Main  ·  2 System Prompt  ·  3 Skills  ·  4 Directives  ·  5 Library  ·  6 Stats  ·  7 Data  ·  8 Settings  ·  9 How-To"
+                                        color: "#bbb"; font.pixelSize: 12; wrapMode: Text.WordWrap
+                                    }
+                                }
+
+                                // ---------- Keyboard ----------
+                                Column {
+                                    width: parent.width
+                                    spacing: 4
+                                    Text { text: "Keyboard"; color: "#ccc"; font.pixelSize: 13; font.weight: Font.DemiBold }
+                                    Text {
+                                        width: parent.width
+                                        text: "Ctrl+1..9 — jump to a tab\n" +
+                                              "Alt+1 — Sessions    Alt+2 — Answers\n" +
+                                              "Ctrl+F search  ·  Ctrl+W clear draft  ·  Ctrl+S save prompt  ·  Ctrl+E editor\n" +
+                                              "Ctrl+Return send  ·  Ctrl+Shift+Left/Right move answer  ·  Esc close\n" +
+                                              "Click outside the panel closes it; clicks inside never dismiss it."
+                                        color: "#bbb"; font.pixelSize: 12; wrapMode: Text.WordWrap
+                                    }
+                                }
+
+                                Rectangle { width: parent.width; height: 1; color: "#2e2e2e" }
+
+                                // ---------- Recording + Data ----------
+                                Column {
+                                    width: parent.width
+                                    spacing: 6
+
+                                    Text { text: "Recording and the Data page"; color: "#ccc"; font.pixelSize: 13; font.weight: Font.DemiBold }
+
+                                    Text {
+                                        width: parent.width
+                                        text: "● Record is a toggle in the send bar. While it is off, sending a prompt still works — nothing is stored. While it is on, every prompt you actually send is appended to the dataset as one record, together with the directive and skills that were attached and the session it went to."
+                                        color: "#bbb"; font.pixelSize: 12; wrapMode: Text.WordWrap
+                                    }
+
+                                    Text {
+                                        width: parent.width
+                                        text: "The Data page shows those records. It is a read-only view of the dataset file — the plugin never deletes your data — and the count at the top is the number of records captured so far. Recording is independent of saving to the Library, which is a separate curated collection."
+                                        color: "#bbb"; font.pixelSize: 12; wrapMode: Text.WordWrap
+                                    }
+
+                                    Text {
+                                        width: parent.width
+                                        text: "Export (ShareGPT + Alpaca) writes the whole dataset to two JSON files: ShareGPT uses the conversation messages, Alpaca uses an instruction/input/output shape. Use it to move the dataset elsewhere or to feed a fine-tuning tool. Refresh re-reads the file after an external change."
+                                        color: "#bbb"; font.pixelSize: 12; wrapMode: Text.WordWrap
+                                    }
+                                }
+
+                                Rectangle { width: parent.width; height: 1; color: "#2e2e2e" }
+
+                                // ---------- System Prompt ----------
+                                Column {
+                                    width: parent.width
+                                    spacing: 4
+                                    Text { text: "System Prompt"; color: "#ccc"; font.pixelSize: 13; font.weight: Font.DemiBold }
+                                    Text {
+                                        width: parent.width
+                                        text: "Edits the instruction files OpenCode merges into its system prompt. The left rail lists every source it reads: the global ~/.config/opencode/AGENTS.md, instructions[] entries in opencode.json, per-agent files, and the project AGENTS.md. Pick one on the left and edit it on the right; Save writes the file back."
+                                        color: "#bbb"; font.pixelSize: 12; wrapMode: Text.WordWrap
+                                    }
+                                }
+
+                                // ---------- Settings ----------
+                                Column {
+                                    width: parent.width
+                                    spacing: 4
+                                    Text { text: "Settings"; color: "#ccc"; font.pixelSize: 13; font.weight: Font.DemiBold }
+                                    Text {
+                                        width: parent.width
+                                        text: "Choose where user data and cache live, point at the exporter and the OpenCode database, then Save. Leaving a field empty restores its default. Detect re-checks every path; Repair creates missing folders, seeds the stores and reinstalls the export timer. Changing a folder moves the existing files across instead of stranding them."
+                                        color: "#bbb"; font.pixelSize: 12; wrapMode: Text.WordWrap
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -3376,49 +3571,71 @@ Item {
 
                     Column {
                         anchors.fill: parent
-                        spacing: 8
+                        anchors.margins: 20
+                        spacing: 12
 
                         Row {
-                            spacing: 10
+                            spacing: 12
 
-                            Text { text: "Training Dataset"; color: "#ccc"; font.pixelSize: 14 }
+                            Text { text: "Data"; color: "#ccc"; font.pixelSize: 14; font.weight: Font.DemiBold; anchors.verticalCenter: parent.verticalCenter }
 
-                            Text {
+                            Rectangle {
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: card.trainingCount + " record" + (card.trainingCount === 1 ? "" : "s")
-                                color: "#8ab4f8"
-                                font.pixelSize: 12
+                                height: 20
+                                radius: 10
+                                width: dsCount.implicitWidth + 16
+                                color: "#252525"
+                                Text { id: dsCount; anchors.centerIn: parent; text: card.trainingCount + " record" + (card.trainingCount === 1 ? "" : "s"); color: "#8ab4f8"; font.pixelSize: 11 }
                             }
+
+                            Rectangle {
+                                anchors.verticalCenter: parent.verticalCenter
+                                height: 20
+                                radius: 10
+                                width: dsState.implicitWidth + 16
+                                color: card.recordOn ? "#1f3a2a" : "#252525"
+                                Text {
+                                    id: dsState
+                                    anchors.centerIn: parent
+                                    text: card.recordOn ? "● Recording on" : "○ Recording off"
+                                    color: card.recordOn ? "#6fcf97" : "#888"
+                                    font.pixelSize: 11
+                                }
+                            }
+                        }
+
+                        Text {
+                            width: parent.width
+                            text: "One record is appended each time you send a prompt while Record is on. Use it to build a dataset from real usage, then export it for fine-tuning. The How-To tab explains this in full."
+                            color: "#888"
+                            font.pixelSize: 11
+                            wrapMode: Text.WordWrap
                         }
 
                         Row {
                             spacing: 8
-                            Button { text: "Export (ShareGPT + Alpaca)"; bordered: true; onClicked: exportDatasetProc.running = true }
-                            Button { text: "Refresh"; bordered: true; onClicked: trainingView.reload() }
-                        }
-
-                        Text {
-                            text: card.recordOn ? "Recording is ON — each sent payload is appended." : "Recording is OFF — enable ○ Record in the send bar to capture payloads."
-                            color: card.recordOn ? "#6fcf97" : "#888"
-                            font.pixelSize: 11
+                            FlatButton { text: "Export (ShareGPT + Alpaca)"; onClicked: exportDatasetProc.running = true }
+                            FlatButton { text: "Refresh"; onClicked: trainingView.reload() }
                         }
 
                         Rectangle {
                             width: parent.width
-                            height: parent.height - 92
-                            radius: 8
+                            height: parent.height - 118
+                            radius: 10
                             color: "#202020"
+                            border.width: 1
+                            border.color: "#2e2e2e"
 
                             ScrollView {
                                 id: datasetScroll
                                 anchors.fill: parent
-                                anchors.margins: 8
+                                anchors.margins: 12
                                 clip: true
                                 contentWidth: availableWidth
 
                                 Text {
                                     width: datasetScroll.availableWidth
-                                    text: card.trainingText !== "" ? card.trainingText : "No data yet."
+                                    text: card.trainingText !== "" ? card.trainingText : "No records yet. Turn on Record in the send bar and send a prompt."
                                     color: "#bbb"
                                     font.pixelSize: 10
                                     font.family: "JetBrains Mono"
