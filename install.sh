@@ -23,6 +23,7 @@ PLUGIN_FILES=(
   manifest.json
   BarWidget.qml
   Panel.qml
+  FlatButton.qml
   prompts.json
   directives.json
   exporter.py

@@ -18,48 +18,6 @@ Item {
         if (shell && manifest && typeof shell.hide === 'function') shell.hide(manifest.id)
     }
 
-    // House-style button, matching the Send button: accent blue, radius 6,
-    // 24px tall, white 11px label, auto-width from the label.
-    component FlatButton: Rectangle {
-        // Note: no `id` on the root — an inline component's own root id is not
-        // reliably resolvable from inside itself in this Quickshell/Qt build, so
-        // the children address the properties through `parent` instead.
-        property string text: ""
-        property bool primary: true
-        signal clicked()
-
-        implicitHeight: 24
-        radius: 6
-        color: primary
-               ? (hoverArea.containsMouse ? "#2f61d8" : "#3a6df0")
-               : (hoverArea.containsMouse ? "#333" : "#252525")
-        border.width: primary ? 0 : 1
-        border.color: "#3a3a3a"
-        opacity: enabled ? 1 : 0.45
-        width: metrics.width + 20
-
-        TextMetrics {
-            id: metrics
-            font.pixelSize: 11
-            text: parent.text
-        }
-
-        Text {
-            anchors.centerIn: parent
-            text: parent.text
-            color: parent.primary ? "#fff" : "#ccc"
-            font.pixelSize: 11
-        }
-
-        MouseArea {
-            id: hoverArea
-            anchors.fill: parent
-            hoverEnabled: true
-            enabled: parent.enabled
-            onClicked: parent.clicked()
-        }
-    }
-
     PanelWindow {
         visible: root.opened
         WlrLayershell.namespace: "opencode-sessions-panel"
