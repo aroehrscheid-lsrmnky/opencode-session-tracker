@@ -1,6 +1,6 @@
 # Testing Guide
 
-Manual test checklist for the current six-tab panel. For full feature docs see `HANDBOOK.html`.
+Manual test checklist for the current nine-tab panel. For full feature docs see `HANDBOOK.html`.
 
 ## Prerequisites
 - Omarchy (Hyprland + Quickshell)
@@ -24,8 +24,8 @@ omarchy-shell shell summon "io.github.aroehrscheid-lsrmnky.opencode-sessions" '{
 python3 ~/documents/opencode-session-tracker/exporter.py
 cat ~/.cache/opencode-sessions/sessions.json | jq '.sessions | length'
 # directives scripts (round-trip; the import run should add nothing new)
-python3 ~/documents/opencode-session-tracker/plugin/scripts/export_directives.py
-python3 ~/documents/opencode-session-tracker/plugin/scripts/import_directives.py /tmp/opencode-directives-*.json
+python3 ~/documents/opencode-session-tracker/scripts/export_directives.py
+python3 ~/documents/opencode-session-tracker/scripts/import_directives.py /tmp/opencode-directives-*.json
 ```
 
 ## Store location (regression)
@@ -137,5 +137,5 @@ Same fix applies when a reload log line fires but the UI does not change.
 ## Visual verification
 ```bash
 cd /tmp/opencode
-bash capture_all.sh  # Requires custom script
+# Visual verification via OCR captures per manual check
 ```

@@ -36,10 +36,9 @@
 - [x] Six-tab layout with `Ctrl+1…7` shortcuts
 
 ## Phase 6 – Polish 🔄
-- [ ] System Prompts tab: manage OpenCode's own standing instruction files
-      (the reserved Main strip is a placeholder for this; deferred)
+- [x] System Prompt tab: manage OpenCode's own standing instruction files
+- [x] Settings UI (paths/cache/exporter/db configuration, Detect/Repair)
 - [ ] Theming (light/dark variants)
-- [ ] Settings UI (persist font settings)
 - [ ] GitHub release workflow
 - [ ] Favourite starring for prompts
 - [ ] Session export/import

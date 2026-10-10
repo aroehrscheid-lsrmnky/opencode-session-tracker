@@ -1,5 +1,7 @@
 import QtQuick
 
+pragma ComponentBehavior: Bound
+
 // House-style button matching the panel's Send button: accent blue, radius 6,
 // 24px tall, white 11px label.
 //

@@ -5,6 +5,8 @@ import Quickshell
 import Quickshell.Io
 import qs.Ui
 
+pragma ComponentBehavior: Bound
+
 Item {
     id: root
     property var shell
@@ -326,50 +328,26 @@ Item {
             }
 
             function filteredDirectives() {
-                return directives.filter(d => {
-                    return !directiveTagFilter || (d.tags || []).indexOf(directiveTagFilter) !== -1
-                })
+                return filterByTag(directives, directiveTagFilter)
             }
 
             function filteredComposeDirectives() {
-                var q = directiveSearchText.toLowerCase().trim()
-                return directives.filter(d => {
-                    return q === "" || String(d.title || "").toLowerCase().includes(q) || String(d.text || "").toLowerCase().includes(q)
-                })
+                return filterBySearch(directives, directiveSearchText, ["title", "text"])
             }
 
             function updateDirectiveItem(id, newTitle, newText) {
-                var next = []
-                for (var i = 0; i < directives.length; i++) {
-                    var it = directives[i]
-                    if (it.id === id) {
-                        next.push({
-                            id: it.id,
-                            title: newTitle,
-                            text: newText,
-                            created_at: it.created_at,
-                            tags: extractTags(newTitle + " " + newText)
-                        })
-                    } else {
-                        next.push(it)
-                    }
-                }
-                directives = next
+                directives = updateItemById(directives, id, { title: newTitle, text: newText, tags: extractTags(newTitle + " " + newText) })
                 if (selectedDirectiveId === id) directiveText = newText
-                dirView.setText(JSON.stringify({ directives: next, selectedId: selectedDirectiveId }, null, 2))
+                dirView.setText(JSON.stringify({ directives: directives, selectedId: selectedDirectiveId }, null, 2))
                 setStatus("Directive updated")
             }
 
             function deleteDirectiveItem(id) {
-                var next = []
-                for (var i = 0; i < directives.length; i++) {
-                    if (directives[i].id !== id) next.push(directives[i])
-                }
-                directives = next
+                directives = deleteItemById(directives, id)
                 var sel = selectedDirectiveId === id ? "" : selectedDirectiveId
                 selectedDirectiveId = sel
                 if (sel === "") directiveText = ""
-                dirView.setText(JSON.stringify({ directives: next, selectedId: sel }, null, 2))
+                dirView.setText(JSON.stringify({ directives: directives, selectedId: sel }, null, 2))
                 setStatus("Directive deleted")
             }
 
@@ -428,10 +406,7 @@ Item {
             }
 
             function filteredLibrary() {
-                return library.filter(p => {
-                    var tag = !tagFilter || (p.tags || []).indexOf(tagFilter) !== -1
-                    return tag
-                })
+                return filterByTag(library, tagFilter)
             }
 
             function extractTags(txt) {
@@ -444,34 +419,38 @@ Item {
                 return out
             }
 
+            // Generic helpers to replace per-store duplicates
+            function filterByTag(array, tagFilter) {
+                return array.filter(p => !tagFilter || (p.tags || []).indexOf(tagFilter) !== -1)
+            }
+            function filterBySearch(array, searchText, fields) {
+                var q = String(searchText || "").toLowerCase().trim()
+                if (q === "") return array
+                return array.filter(item => fields.some(f => String(item[f] || "").toLowerCase().includes(q)))
+            }
+            function updateItemById(array, id, newFields) {
+                return array.map(it => it.id === id ? Object.assign({}, it, newFields) : it)
+            }
+            function deleteItemById(array, id) {
+                return array.filter(it => it.id !== id)
+            }
+            function toggleInArray(array, item) {
+                var a = array.slice()
+                var i = a.indexOf(item)
+                if (i >= 0) a.splice(i, 1)
+                else a.push(item)
+                return a
+            }
+
             function updateLibraryItem(id, newText) {
-                var next = []
-                for (var i = 0; i < library.length; i++) {
-                    var it = library[i]
-                    if (it.id === id) {
-                        next.push({
-                            id: it.id,
-                            text: newText,
-                            created_at: it.created_at,
-                            tags: extractTags(newText),
-                            favourite: !!it.favourite
-                        })
-                    } else {
-                        next.push(it)
-                    }
-                }
-                library = next
-                libView.setText(JSON.stringify({ library: next }, null, 2))
+                library = updateItemById(library, id, { text: newText, tags: extractTags(newText) })
+                libView.setText(JSON.stringify({ library: library }, null, 2))
                 setStatus("Library item updated")
             }
 
             function deleteLibraryItem(id) {
-                var next = []
-                for (var i = 0; i < library.length; i++) {
-                    if (library[i].id !== id) next.push(library[i])
-                }
-                library = next
-                libView.setText(JSON.stringify({ library: next }, null, 2))
+                library = deleteItemById(library, id)
+                libView.setText(JSON.stringify({ library: library }, null, 2))
                 setStatus("Library item deleted")
             }
 
@@ -519,17 +498,11 @@ Item {
             }
 
             function filteredSkills() {
-                var q = skillSearchText.toLowerCase().trim()
-                if (q === "") return skills
-                return skills.filter(sk => {
-                    return String(sk.name).toLowerCase().includes(q) || String(sk.description || "").toLowerCase().includes(q)
-                })
+                return filterBySearch(skills, skillSearchText, ["name", "description"])
             }
 
             function filteredComposeSkills() {
-                var q = composeSkillSearchText.toLowerCase().trim()
-                if (q === "") return skills
-                return skills.filter(sk => String(sk.name).toLowerCase().includes(q))
+                return filterBySearch(skills, composeSkillSearchText, ["name"])
             }
 
             function skillSelected(name) {
@@ -537,11 +510,7 @@ Item {
             }
 
             function toggleSkill(name) {
-                var a = selectedSkills.slice()
-                var i = a.indexOf(name)
-                if (i >= 0) a.splice(i, 1)
-                else a.push(name)
-                selectedSkills = a
+                selectedSkills = toggleInArray(selectedSkills, name)
             }
 
             function skillsDirective() {
@@ -629,10 +598,6 @@ Item {
                 saveSettingsProc.running = true
             }
 
-            function saveSettings() {
-                saveSettingsFrom(settingsDraftData, settingsDraftCache, settingsDraftExporter, settingsDraftDb)
-            }
-
             function settingsDefaults() {
                 settingsDraftData = ""
                 settingsDraftCache = ""
@@ -657,10 +622,6 @@ Item {
                 if (!p) return
                 openFolderProc.command = ["xdg-open", p]
                 openFolderProc.running = true
-            }
-
-            function loadSysPromptSources() {
-                sysPromptProc.running = true
             }
 
             function selectSystemPrompt(path) {
@@ -850,7 +811,7 @@ Item {
 
             Process {
                 id: saveProc
-                command: ["python3", card.pluginDir + "/scripts/save_prompt.py", card.draftText]
+                command: ["python3", card.pluginDir + "/scripts/save_store.py", "prompt", card.draftText]
                 onExited: (exitCode, exitStatus) => {
                     if (exitCode === 0) {
                         card.setStatus("Saved to library")
@@ -863,7 +824,7 @@ Item {
 
             Process {
                 id: libAddProc
-                command: ["python3", card.pluginDir + "/scripts/save_prompt.py", card.libraryNewText]
+                command: ["python3", card.pluginDir + "/scripts/save_store.py", "prompt", card.libraryNewText]
                 onExited: (exitCode, exitStatus) => {
                     if (exitCode === 0) {
                         card.libraryNewText = ""
@@ -877,7 +838,7 @@ Item {
 
             Process {
                 id: exportJsonProc
-                command: ["python3", card.pluginDir + "/scripts/export_library.py"]
+                command: ["python3", card.pluginDir + "/scripts/export_store.py", "library", "json"]
                 stdout: SplitParser {
                     onRead: function(line) {
                         if (String(line).trim() !== "") card.setStatus("Exported: " + String(line).trim())
@@ -887,7 +848,7 @@ Item {
 
             Process {
                 id: exportMdProc
-                command: ["python3", card.pluginDir + "/scripts/export_library_md.py"]
+                command: ["python3", card.pluginDir + "/scripts/export_store.py", "library", "md"]
                 stdout: SplitParser {
                     onRead: function(line) {
                         if (String(line).trim() !== "") card.setStatus("Exported: " + String(line).trim())
@@ -902,7 +863,7 @@ Item {
                     onRead: function(line) {
                         var p = String(line).trim()
                         if (p === "") return
-                        importFile.command = ["python3", card.pluginDir + "/scripts/import_library.py", p]
+                        importFile.command = ["python3", card.pluginDir + "/scripts/import_store.py", "library", p]
                         importFile.running = true
                     }
                 }
@@ -920,7 +881,7 @@ Item {
 
             Process {
                 id: dirAddProc
-                command: ["python3", card.pluginDir + "/scripts/save_directive.py", card.directiveNewTitle, card.directiveNewBody]
+                command: ["python3", card.pluginDir + "/scripts/save_store.py", "directive", card.directiveNewTitle, card.directiveNewBody]
                 onExited: (exitCode, exitStatus) => {
                     if (exitCode === 0) {
                         card.directiveNewTitle = ""
@@ -955,7 +916,7 @@ Item {
 
             Process {
                 id: dirExportJsonProc
-                command: ["python3", card.pluginDir + "/scripts/export_directives.py"]
+                command: ["python3", card.pluginDir + "/scripts/export_store.py", "directives", "json"]
                 stdout: SplitParser {
                     onRead: function(line) {
                         if (String(line).trim() !== "") card.setStatus("Exported: " + String(line).trim())
@@ -965,7 +926,7 @@ Item {
 
             Process {
                 id: dirExportMdProc
-                command: ["python3", card.pluginDir + "/scripts/export_directives_md.py"]
+                command: ["python3", card.pluginDir + "/scripts/export_store.py", "directives", "md"]
                 stdout: SplitParser {
                     onRead: function(line) {
                         if (String(line).trim() !== "") card.setStatus("Exported: " + String(line).trim())
@@ -980,7 +941,7 @@ Item {
                     onRead: function(line) {
                         var p = String(line).trim()
                         if (p === "") return
-                        dirImportFile.command = ["python3", card.pluginDir + "/scripts/import_directives.py", p]
+                        dirImportFile.command = ["python3", card.pluginDir + "/scripts/import_store.py", "directives", p]
                         dirImportFile.running = true
                     }
                 }
@@ -1955,7 +1916,6 @@ Item {
                                     }
 
                                     TextField {
-                                        id: composeSkillSearchField
                                         anchors.right: parent.right
                                         anchors.verticalCenter: parent.verticalCenter
                                         width: Math.min(220, parent.width - 60)
@@ -2085,7 +2045,6 @@ Item {
                                     }
 
                                     TextField {
-                                        id: composeDirectiveSearchField
                                         anchors.right: parent.right
                                         anchors.verticalCenter: parent.verticalCenter
                                         width: 200
@@ -2144,7 +2103,6 @@ Item {
                                     clip: true
 
                                     TextArea {
-                                        id: dirBox
                                         width: dirBoxScroll.availableWidth
                                         wrapMode: TextArea.Wrap
                                         background: Item {}
@@ -2388,7 +2346,6 @@ Item {
                         contentWidth: availableWidth
 
                         Flow {
-                            id: libGrid
                             width: libScroll.availableWidth
                             spacing: 6
 
@@ -2408,7 +2365,6 @@ Item {
                                     border.color: libCard.dirty ? "#3a6df0" : "#2e2e2e"
 
                                     Column {
-                                        id: libCardCol
                                         anchors.top: parent.top
                                         anchors.left: parent.left
                                         anchors.right: parent.right
@@ -2633,7 +2589,6 @@ Item {
                         contentWidth: availableWidth
 
                         Flow {
-                            id: dirGrid
                             width: dirScroll.availableWidth
                             spacing: 6
 
@@ -2654,7 +2609,6 @@ Item {
                                     border.color: dirCard.selected ? "#8ab4f8" : (dirCard.dirty ? "#3a6df0" : "#2e2e2e")
 
                                     Column {
-                                        id: dirCardCol
                                         anchors.top: parent.top
                                         anchors.left: parent.left
                                         anchors.right: parent.right
@@ -3123,7 +3077,6 @@ Item {
                     anchors.fill: parent
 
                     Rectangle {
-                        id: statsPanel
                         anchors.centerIn: parent
                         width: Math.min(720, parent.width - 80)
                         height: statsCol.implicitHeight + 48

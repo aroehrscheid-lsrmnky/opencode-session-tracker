@@ -16,15 +16,20 @@ A Quickshell/Omarchy bar-widget + panel to track OpenCode sessions, browse promp
 - Skills tab: per-skill emoji/color appearance persisted to `skills.json`
 
 ## Views
+The panel has nine tabs, jumped to with `Ctrl+1`–`Ctrl+9`.
+
 | Shortcut | Tab | Description |
 |----------|-----|-------------|
-| `Ctrl+1` | Main ▸ Sessions | Session chips, recent prompts, workbench (compose/send) |
-| `Ctrl+2` | Main ▸ Answers | Markdown answer view, navigation, font controls |
-| `Ctrl+3` | Library | Editable 2-per-row prompt cards + tag filter, add/export/import |
-| `Ctrl+4` | Directives | Editable 2-per-row directive cards (title + body) + select, add/export/import |
-| `Ctrl+5` | Skills | Skill list + per-skill appearance editing |
+| `Ctrl+1` / `Alt+1` | Main ▸ Sessions | Session chips, recent prompts, prompt workbench (compose/send) |
+| `Alt+2` | Main ▸ Answers | Markdown answer view, navigation, font controls |
+| `Ctrl+2` | System Prompt | Edit OpenCode's own standing-instruction files |
+| `Ctrl+3` | Skills | Per-skill emoji/colour appearance + add |
+| `Ctrl+4` | Directives | Editable directive cards (title + body), select, add/export/import |
+| `Ctrl+5` | Library | Editable prompt cards, tag filter, add/export/import |
 | `Ctrl+6` | Stats | Session/library/prompt counts |
-| `Ctrl+7` | Dataset | Training records + ShareGPT/Alpaca export |
+| `Ctrl+7` | Data | Training records + ShareGPT/Alpaca export |
+| `Ctrl+8` | Settings | Data/cache/exporter/db paths, Detect, Repair |
+| `Ctrl+9` | How-To | This guide |
 
 ### Other shortcuts
 | Key | Action |
@@ -35,6 +40,8 @@ A Quickshell/Omarchy bar-widget + panel to track OpenCode sessions, browse promp
 | `Ctrl+W` | Clear draft |
 | `Ctrl+E` | Back to Sessions |
 | `Ctrl+Return` | Send |
+| `Alt+1` / `Alt+2` | Sessions / Answers sub-pane (Main tab) |
+| `Ctrl+Shift+Left/Right/Up` | Navigate answers |
 
 ## Install
 ```bash
