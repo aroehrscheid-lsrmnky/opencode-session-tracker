@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
-import sqlite3, json, os
+import sqlite3, json, os, sys
 from datetime import datetime
 
-DB_PATH = os.path.expanduser("~/.local/share/opencode/opencode.db")
-OUT_PATH = os.path.expanduser("~/.cache/opencode-sessions/sessions.json")
+# Paths come from the user settings (scripts/_paths.py); fall back to the
+# historical defaults when the settings file or helper is absent.
+try:
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts"))
+    import _paths
+    DB_PATH = _paths.db_path()
+    OUT_PATH = os.path.join(_paths.cache_dir(), "sessions.json")
+except Exception:
+    DB_PATH = os.path.expanduser("~/.local/share/opencode/opencode.db")
+    OUT_PATH = os.path.expanduser("~/.cache/opencode-sessions/sessions.json")
 
 os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
 

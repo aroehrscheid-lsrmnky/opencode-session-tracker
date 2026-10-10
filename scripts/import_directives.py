@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import json, sys, os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _paths
 src = sys.argv[1]
-dst = os.path.expanduser("~/.config/opencode-sessions/directives.json")
+dst = os.path.join(_paths.data_dir(), "directives.json")
 if not os.path.exists(src):
     sys.exit(1)
 with open(src) as f:

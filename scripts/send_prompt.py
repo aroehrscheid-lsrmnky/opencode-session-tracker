@@ -2,6 +2,9 @@
 import os, re, sys, json, shutil, subprocess, urllib.request
 from datetime import datetime, timezone
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _paths
+
 HOME = os.path.expanduser("~")
 ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 DEFAULT_ATTACH = "http://127.0.0.1:4096"
@@ -67,7 +70,7 @@ def record(job, session, cwd, agent):
             "raw_payload": job.get("raw_payload", ""),
             "final_payload": job.get("payload", ""),
         }
-        path = os.path.join(HOME, ".config/opencode-sessions/training.jsonl")
+        path = os.path.join(_paths.data_dir(), "training.jsonl")
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")

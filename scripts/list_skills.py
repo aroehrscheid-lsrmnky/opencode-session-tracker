@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-import os, re, json
+import os, re, json, sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _paths
 
 HOME = os.path.expanduser("~")
-OUT = os.path.join(HOME, ".cache", "opencode-sessions", "skills.json")
+OUT = os.path.join(_paths.cache_dir(), "skills.json")
 
 DIRS = [
     os.path.join(HOME, ".agents", "skills"),

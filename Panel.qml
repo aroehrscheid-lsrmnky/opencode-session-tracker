@@ -43,8 +43,11 @@ Item {
 
             readonly property string home: Quickshell.env("HOME")
             readonly property string pluginDir: home + "/.config/omarchy/plugins/io.github.aroehrscheid-lsrmnky.opencode-sessions"
-            readonly property string dataDir: home + "/.config/opencode-sessions"
-            readonly property string cacheDir: home + "/.cache/opencode-sessions"
+            readonly property string settingsPath: home + "/.config/opencode-sessions/settings.json"
+            readonly property string agentsMdPath: home + "/.config/opencode/AGENTS.md"
+            property var settings: ({})
+            readonly property string dataDir: (settings.dataDir && settings.dataDir.length > 0) ? settings.dataDir : home + "/.config/opencode-sessions"
+            readonly property string cacheDir: (settings.cacheDir && settings.cacheDir.length > 0) ? settings.cacheDir : home + "/.cache/opencode-sessions"
             readonly property string cachePath: cacheDir + "/sessions.json"
             readonly property string bookmarksPath: dataDir + "/bookmarks.json"
             readonly property string libraryPath: dataDir + "/prompts.json"
@@ -94,10 +97,21 @@ Item {
             property bool sending: false
             property int trainingCount: 0
             property string trainingText: ""
+            property var sysPromptSources: []
+            property string sysPromptTarget: agentsMdPath
+            property string sysPromptDraft: ""
+            property bool sysPromptDirty: false
+            property var settingsChecks: []
+            property string settingsLog: ""
+            property string settingsDraftData: ""
+            property string settingsDraftCache: ""
+            property string settingsDraftExporter: ""
+            property string settingsDraftDb: ""
             readonly property string skillsPath: cacheDir + "/skills.json"
             readonly property string skillStylesPath: dataDir + "/skill_styles.json"
             readonly property string trainingPath: dataDir + "/training.jsonl"
-            readonly property string exporterPath: home + "/documents/opencode-session-tracker/exporter.py"
+            readonly property string exporterPath: (settings.exporterPath && settings.exporterPath.length > 0) ? settings.exporterPath : pluginDir + "/exporter.py"
+            readonly property string dbPath: (settings.dbPath && settings.dbPath.length > 0) ? settings.dbPath : home + "/.local/share/opencode/opencode.db"
 
             onSessionsChanged: {
                 if (activeSessionIndex >= sessions.length)
@@ -107,6 +121,9 @@ Item {
             Component.onCompleted: {
                 initStoreProc.running = true
                 skillsProc.running = true
+                loadSettingsDrafts()
+                sysPromptProc.running = true
+                detectProc.running = true
             }
 
             function setStatus(msg) {
@@ -569,6 +586,87 @@ Item {
                 setStatus("Prompt copied to clipboard")
             }
 
+            // ---------- Settings ----------
+            function loadSettingsDrafts() {
+                settingsDraftData = settings.dataDir || ""
+                settingsDraftCache = settings.cacheDir || ""
+                settingsDraftExporter = settings.exporterPath || ""
+                settingsDraftDb = settings.dbPath || ""
+            }
+
+            function saveSettingsFrom(data, cache, exporter, db) {
+                var obj = {
+                    dataDir: String(data || ""),
+                    cacheDir: String(cache || ""),
+                    exporterPath: String(exporter || ""),
+                    dbPath: String(db || "")
+                }
+                settingsLog = "Saving…"
+                saveSettingsProc.command = ["python3", pluginDir + "/scripts/save_settings.py", JSON.stringify(obj)]
+                saveSettingsProc.running = true
+            }
+
+            function saveSettings() {
+                saveSettingsFrom(settingsDraftData, settingsDraftCache, settingsDraftExporter, settingsDraftDb)
+            }
+
+            function settingsDefaults() {
+                settingsDraftData = ""
+                settingsDraftCache = ""
+                settingsDraftExporter = ""
+                settingsDraftDb = ""
+                saveSettingsProc.command = ["python3", pluginDir + "/scripts/save_settings.py", "{}"]
+                settingsLog = "Resetting to defaults…"
+                saveSettingsProc.running = true
+            }
+
+            function runDetect() {
+                settingsLog = "Checking…"
+                detectProc.running = true
+            }
+
+            function runRepair() {
+                settingsLog = "Repairing…"
+                repairProc.running = true
+            }
+
+            function openFolder(p) {
+                if (!p) return
+                openFolderProc.command = ["xdg-open", p]
+                openFolderProc.running = true
+            }
+
+            function loadSysPromptSources() {
+                sysPromptProc.running = true
+            }
+
+            function selectSystemPrompt(path) {
+                if (!path) return
+                sysPromptTarget = path
+                setStatus("Opened " + path)
+            }
+
+            function setSysPromptDraft(txt) {
+                sysPromptDraft = txt
+                sysPromptDirty = false
+            }
+
+            function saveSystemPromptText(txt) {
+                if (sysPromptTarget === "") return
+                sysPromptFile.setText(String(txt || ""))
+                sysPromptDirty = false
+                setStatus("Saved " + sysPromptTarget)
+            }
+
+            onViewModeChanged: {
+                if (viewMode === 1 && sysPromptSources.length === 0)
+                    sysPromptProc.running = true
+                if (viewMode === 7) {
+                    loadSettingsDrafts()
+                    detectProc.running = true
+                }
+            }
+
             Timer {
                 id: statusTimer
                 interval: 4000
@@ -687,6 +785,32 @@ Item {
                 id: sendJobView
                 path: card.cacheDir + "/send_job.json"
                 printErrors: false
+            }
+
+            FileView {
+                id: settingsFile
+                path: card.settingsPath
+                watchChanges: true
+                printErrors: false
+                onFileChanged: reload()
+                onLoaded: {
+                    try {
+                        var d = JSON.parse(String(text() || "{}"))
+                        card.settings = (d && typeof d === "object") ? d : {}
+                    } catch (e) {
+                        card.settings = {}
+                    }
+                    card.loadSettingsDrafts()
+                }
+            }
+
+            FileView {
+                id: sysPromptFile
+                path: card.sysPromptTarget
+                watchChanges: true
+                printErrors: false
+                onFileChanged: reload()
+                onLoaded: card.setSysPromptDraft(String(text() || ""))
             }
 
             Process {
@@ -896,18 +1020,107 @@ Item {
                 }
             }
 
+            Process {
+                id: saveSettingsProc
+                property string buf: ""
+                stdout: SplitParser {
+                    onRead: function(line) {
+                        if (String(line).trim() !== "") { saveSettingsProc.buf += line + "\n"; card.settingsLog = String(line).trim() }
+                    }
+                }
+                stderr: SplitParser {
+                    onRead: function(line) {
+                        if (String(line).trim() !== "") { saveSettingsProc.buf += line + "\n"; card.settingsLog = String(line).trim() }
+                    }
+                }
+                onExited: (exitCode, exitStatus) => {
+                    saveSettingsProc.buf = ""
+                    settingsFile.reload()
+                    detectProc.running = true
+                }
+            }
+
+            Process {
+                id: detectProc
+                property string buf: ""
+                command: ["python3", card.pluginDir + "/scripts/detect_paths.py"]
+                stdout: SplitParser { onRead: function(line) { detectProc.buf += line + "\n" } }
+                onExited: (exitCode, exitStatus) => {
+                    try {
+                        var d = JSON.parse(detectProc.buf)
+                        card.settingsChecks = d.checks || []
+                        card.settingsLog = d.ok ? "All checks passed." : "Some checks need attention."
+                    } catch (e) {
+                        card.settingsChecks = []
+                        card.settingsLog = "Could not read path report."
+                    }
+                    detectProc.buf = ""
+                }
+            }
+
+            Process {
+                id: repairProc
+                property string buf: ""
+                command: ["python3", card.pluginDir + "/scripts/repair_setup.py"]
+                stdout: SplitParser {
+                    onRead: function(line) {
+                        if (String(line).trim() !== "") { repairProc.buf += line + "\n"; card.settingsLog = String(line).trim(); card.setStatus(String(line).trim()) }
+                    }
+                }
+                stderr: SplitParser {
+                    onRead: function(line) {
+                        if (String(line).trim() !== "") { repairProc.buf += line + "\n"; card.settingsLog = String(line).trim() }
+                    }
+                }
+                onExited: (exitCode, exitStatus) => {
+                    repairProc.buf = ""
+                    detectProc.running = true
+                }
+            }
+
+            Process {
+                id: openFolderProc
+                stderr: SplitParser {
+                    onRead: function(line) {
+                        if (String(line).trim() !== "") card.setStatus(String(line).trim())
+                    }
+                }
+            }
+
+            Process {
+                id: sysPromptProc
+                property string buf: ""
+                command: ["python3", card.pluginDir + "/scripts/list_system_prompts.py", card.currentCwd()]
+                stdout: SplitParser { onRead: function(line) { sysPromptProc.buf += line + "\n" } }
+                onExited: (exitCode, exitStatus) => {
+                    try {
+                        var d = JSON.parse(sysPromptProc.buf)
+                        card.sysPromptSources = d.sources || []
+                        if (card.sysPromptTarget === "" && card.sysPromptSources.length > 0)
+                            card.selectSystemPrompt(card.sysPromptSources[0].path)
+                    } catch (e) {
+                        card.sysPromptSources = []
+                    }
+                    sysPromptProc.buf = ""
+                }
+            }
+
             Shortcut { sequence: "Escape"; onActivated: root.close() }
             Shortcut { sequence: "Ctrl+F"; onActivated: { if (card.viewMode === 0 && card.promptSearchInput) card.promptSearchInput.forceActiveFocus() } }
             Shortcut { sequence: "Ctrl+W"; onActivated: card.draftText = "" }
             Shortcut { sequence: "Ctrl+S"; onActivated: card.savePrompt() }
             Shortcut { sequence: "Ctrl+E"; onActivated: card.showEditor() }
             Shortcut { sequence: "Ctrl+1"; onActivated: { card.viewMode = 0; card.mainTab = 0 } }
-            Shortcut { sequence: "Ctrl+2"; onActivated: { card.viewMode = 0; card.openAnswer() } }
-            Shortcut { sequence: "Ctrl+3"; onActivated: card.viewMode = 1 }
-            Shortcut { sequence: "Ctrl+4"; onActivated: card.viewMode = 2 }
-            Shortcut { sequence: "Ctrl+5"; onActivated: card.viewMode = 3 }
-            Shortcut { sequence: "Ctrl+6"; onActivated: card.viewMode = 4 }
-            Shortcut { sequence: "Ctrl+7"; onActivated: card.viewMode = 5 }
+            Shortcut { sequence: "Ctrl+2"; onActivated: card.viewMode = 1 }
+            Shortcut { sequence: "Ctrl+3"; onActivated: card.viewMode = 2 }
+            Shortcut { sequence: "Ctrl+4"; onActivated: card.viewMode = 3 }
+            Shortcut { sequence: "Ctrl+5"; onActivated: card.viewMode = 4 }
+            Shortcut { sequence: "Ctrl+6"; onActivated: card.viewMode = 5 }
+            Shortcut { sequence: "Ctrl+7"; onActivated: card.viewMode = 6 }
+            Shortcut { sequence: "Ctrl+8"; onActivated: card.viewMode = 7 }
+            Shortcut { sequence: "Ctrl+9"; onActivated: card.viewMode = 8 }
+            Shortcut { sequence: "Alt+1"; onActivated: { card.viewMode = 0; card.mainTab = 0 } }
+            Shortcut { sequence: "Alt+2"; onActivated: { card.viewMode = 0; card.openAnswer() } }
             Shortcut { sequence: "Ctrl+Return"; onActivated: card.sendPayload(false) }
             Shortcut { sequence: "Ctrl+Shift+Right"; onActivated: card.navigateAnswer(1) }
             Shortcut { sequence: "Ctrl+Shift+Left"; onActivated: card.navigateAnswer(-1) }
@@ -938,9 +1151,9 @@ Item {
                         spacing: 8
 
                         Repeater {
-                            model: ["Main", "Library", "Directives", "Skills", "Stats", "Dataset"]
+                            model: ["Main", "System Prompt", "Skills", "Directives", "Library", "Stats", "Data", "Settings", "How-To"]
                             delegate: Rectangle {
-                                width: 100
+                                width: 108
                                 height: 28
                                 radius: 6
                                 color: card.viewMode === index ? "#3a6df0" : "#252525"
@@ -958,7 +1171,7 @@ Item {
                 }
 
                 Item {
-                    visible: card.viewMode === 0 || card.viewMode === 3
+                    visible: card.viewMode === 0 || card.viewMode === 2
                     width: headerCol.width
                     height: 24
 
@@ -1019,7 +1232,7 @@ Item {
                     }
 
                     Text {
-                        visible: card.viewMode === 3
+                        visible: card.viewMode === 2
                         anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
                         text: "Skill Appearance  (" + card.skills.length + ")"
@@ -1053,7 +1266,7 @@ Item {
                     }
 
                     TextField {
-                        visible: card.viewMode === 3
+                        visible: card.viewMode === 2
                         anchors.right: leftColEdge.right
                         anchors.rightMargin: 10
                         anchors.verticalCenter: parent.verticalCenter
@@ -1079,36 +1292,15 @@ Item {
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 28
 
-                Loader {
-                    anchors.fill: parent
-                    active: card.viewMode === 0
-                    sourceComponent: sessionsView
-                }
-                Loader {
-                    anchors.fill: parent
-                    active: card.viewMode === 1
-                    sourceComponent: libraryView
-                }
-                Loader {
-                    anchors.fill: parent
-                    active: card.viewMode === 2
-                    sourceComponent: directivesView
-                }
-                Loader {
-                    anchors.fill: parent
-                    active: card.viewMode === 3
-                    sourceComponent: skillsEditView
-                }
-                Loader {
-                    anchors.fill: parent
-                    active: card.viewMode === 4
-                    sourceComponent: statsView
-                }
-                Loader {
-                    anchors.fill: parent
-                    active: card.viewMode === 5
-                    sourceComponent: datasetView
-                }
+                Loader { anchors.fill: parent; active: card.viewMode === 0; sourceComponent: sessionsView }
+                Loader { anchors.fill: parent; active: card.viewMode === 1; sourceComponent: systemPromptView }
+                Loader { anchors.fill: parent; active: card.viewMode === 2; sourceComponent: skillsEditView }
+                Loader { anchors.fill: parent; active: card.viewMode === 3; sourceComponent: directivesView }
+                Loader { anchors.fill: parent; active: card.viewMode === 4; sourceComponent: libraryView }
+                Loader { anchors.fill: parent; active: card.viewMode === 5; sourceComponent: statsView }
+                Loader { anchors.fill: parent; active: card.viewMode === 6; sourceComponent: datasetView }
+                Loader { anchors.fill: parent; active: card.viewMode === 7; sourceComponent: settingsView }
+                Loader { anchors.fill: parent; active: card.viewMode === 8; sourceComponent: howToView }
             }
 
             Text {
@@ -1654,7 +1846,7 @@ Item {
                             }
                         }
 
-                        // ---------- System Prompts (reserved) ----------
+                        // ---------- System Prompts (jump) ----------
                         Rectangle {
                             id: systemPromptsPane
                             anchors.top: parent.top
@@ -1662,7 +1854,7 @@ Item {
                             anchors.right: parent.right
                             height: 44
                             radius: 8
-                            color: "#1b1b1b"
+                            color: sysMouse.containsMouse ? "#242424" : "#1b1b1b"
                             border.width: 1
                             border.color: "#2a2a2a"
 
@@ -1674,7 +1866,7 @@ Item {
 
                                 Text {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: "System Prompts"
+                                    text: "System Prompt"
                                     color: "#aaa"
                                     font.pixelSize: 11
                                     font.weight: Font.Medium
@@ -1682,10 +1874,26 @@ Item {
 
                                 Text {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: "parts merged into the OpenCode system prompt — coming soon"
+                                    text: "edit the merged AGENTS.md OpenCode loads"
                                     color: "#666"
                                     font.pixelSize: 10
                                 }
+                            }
+
+                            Text {
+                                anchors.right: parent.right
+                                anchors.rightMargin: 10
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: "Open \u2192"
+                                color: sysMouse.containsMouse ? "#8ab4f8" : "#555"
+                                font.pixelSize: 10
+                            }
+
+                            MouseArea {
+                                id: sysMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onClicked: card.viewMode = 1
                             }
                         }
 
@@ -2856,6 +3064,305 @@ Item {
                             text: "Active session: " + (card.sessions[card.activeSessionIndex] ? card.sessions[card.activeSessionIndex].title : "—")
                             color: "white"
                             font.pixelSize: 13
+                        }
+                    }
+                }
+            }
+
+            Component {
+                id: systemPromptView
+
+                Item {
+                    anchors.fill: parent
+
+                    Rectangle {
+                        id: spList
+                        anchors.left: parent.left
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: 300
+                        color: "#1b1b1b"
+                        radius: 8
+
+                        Column {
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            spacing: 6
+
+                            Text { text: "Instruction Sources"; color: "#ccc"; font.pixelSize: 13 }
+
+                            ListView {
+                                width: parent.width
+                                height: parent.height - 30
+                                clip: true
+                                model: card.sysPromptSources
+                                spacing: 4
+                                delegate: Rectangle {
+                                    width: ListView.view.width
+                                    height: 42
+                                    radius: 6
+                                    color: card.sysPromptTarget === modelData.path ? "#3a6df0" : (spHover.containsMouse ? "#242424" : "#202020")
+
+                                    Column {
+                                        anchors.left: parent.left
+                                        anchors.leftMargin: 8
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: 8
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: 1
+
+                                        Text { text: modelData.label; color: "white"; font.pixelSize: 11 }
+                                        Text {
+                                            width: parent.width
+                                            text: modelData.exists ? modelData.path : modelData.path + "  (missing)"
+                                            color: modelData.exists ? "#888" : "#c98"
+                                            font.pixelSize: 9
+                                            elide: Text.ElideMiddle
+                                        }
+                                    }
+
+                                    MouseArea { id: spHover; anchors.fill: parent; hoverEnabled: true; onClicked: card.selectSystemPrompt(modelData.path) }
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        anchors.left: spList.right
+                        anchors.leftMargin: 8
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        color: "#1b1b1b"
+                        radius: 8
+
+                        Column {
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            spacing: 6
+
+                            Row {
+                                spacing: 8
+                                Text {
+                                    width: Math.min(560, spList.parent.width - 320)
+                                    text: card.sysPromptTarget === "" ? "No file selected" : card.sysPromptTarget
+                                    color: "#aaa"; font.pixelSize: 11; elide: Text.ElideMiddle
+                                }
+                                Text { visible: card.sysPromptDirty; text: "unsaved"; color: "#e0a"; font.pixelSize: 10 }
+                            }
+
+                            ScrollView {
+                                width: parent.width
+                                height: parent.height - 70
+
+                                TextArea {
+                                    id: promptArea
+                                    text: ""
+                                    color: "#ddd"
+                                    font.family: "JetBrains Mono"
+                                    font.pixelSize: 11
+                                    wrapMode: TextEdit.Wrap
+                                    selectByMouse: true
+                                    onTextChanged: card.sysPromptDirty = true
+                                    background: Rectangle { color: "#141414"; radius: 6 }
+                                }
+                            }
+
+                            Row {
+                                spacing: 8
+                                Rectangle {
+                                    width: 70; height: 26; radius: 6
+                                    color: saveSp.containsMouse ? "#3a6df0" : "#252525"
+                                    Text { anchors.centerIn: parent; text: "Save"; color: "white"; font.pixelSize: 11 }
+                                    MouseArea { id: saveSp; anchors.fill: parent; hoverEnabled: true; onClicked: card.saveSystemPromptText(promptArea.text) }
+                                }
+                                Rectangle {
+                                    width: 70; height: 26; radius: 6
+                                    color: reloadSp.containsMouse ? "#333" : "#252525"
+                                    Text { anchors.centerIn: parent; text: "Reload"; color: "#ccc"; font.pixelSize: 11 }
+                                    MouseArea { id: reloadSp; anchors.fill: parent; hoverEnabled: true; onClicked: sysPromptFile.reload() }
+                                }
+                            }
+                        }
+                    }
+
+                    Connections {
+                        target: card
+                        function onSysPromptDraftChanged() {
+                            promptArea.text = card.sysPromptDraft
+                            card.sysPromptDirty = false
+                        }
+                    }
+                }
+            }
+
+            Component {
+                id: settingsView
+
+                Item {
+                    anchors.fill: parent
+
+                    Column {
+                        anchors.fill: parent
+                        spacing: 8
+
+                        Text { text: "Settings"; color: "#ccc"; font.pixelSize: 14 }
+
+                        Rectangle {
+                            width: parent.width
+                            height: checksCol.height + 16
+                            color: "#1b1b1b"
+                            radius: 8
+
+                            Column {
+                                id: checksCol
+                                anchors.left: parent.left
+                                anchors.leftMargin: 10
+                                anchors.top: parent.top
+                                anchors.topMargin: 8
+                                anchors.right: parent.right
+                                anchors.rightMargin: 10
+                                spacing: 3
+
+                                Repeater {
+                                    model: card.settingsChecks
+                                    delegate: Row {
+                                        spacing: 6
+                                        Text { text: modelData.ok ? "\u2713" : "\u2717"; color: modelData.ok ? "#6c6" : "#c66"; font.pixelSize: 11 }
+                                        Text { text: modelData.label; color: "#ccc"; font.pixelSize: 11; width: 150 }
+                                        Text { text: modelData.path; color: "#888"; font.pixelSize: 10; elide: Text.ElideMiddle; width: 420 }
+                                        Text { text: modelData.ok ? "" : modelData.hint; color: "#c98"; font.pixelSize: 10 }
+                                    }
+                                }
+                            }
+                        }
+
+                        Column {
+                            spacing: 6
+                            width: parent.width
+
+                            Row {
+                                spacing: 8
+                                Text { text: "Data folder"; color: "#aaa"; font.pixelSize: 11; width: 130; anchors.verticalCenter: parent.verticalCenter }
+                                TextField { id: fData; width: 520; height: 26; color: "white"; font.pixelSize: 11; placeholderText: card.dataDir; background: Rectangle { color: "#252525"; radius: 6 } }
+                                Rectangle {
+                                    width: 60; height: 26; radius: 6; color: openData.containsMouse ? "#333" : "#252525"
+                                    Text { anchors.centerIn: parent; text: "Open"; color: "#ccc"; font.pixelSize: 11 }
+                                    MouseArea { id: openData; anchors.fill: parent; hoverEnabled: true; onClicked: card.openFolder(fData.text || card.dataDir) }
+                                }
+                            }
+
+                            Row {
+                                spacing: 8
+                                Text { text: "Cache folder"; color: "#aaa"; font.pixelSize: 11; width: 120; anchors.verticalCenter: parent.verticalCenter }
+                                TextField { id: fCache; width: 520; height: 26; color: "white"; font.pixelSize: 11; placeholderText: card.cacheDir; background: Rectangle { color: "#252525"; radius: 6 } }
+                                Rectangle {
+                                    width: 60; height: 26; radius: 6; color: openC.containsMouse ? "#333" : "#252525"
+                                    Text { anchors.centerIn: parent; text: "Open"; color: "#ccc"; font.pixelSize: 11 }
+                                    MouseArea { id: openC; anchors.fill: parent; hoverEnabled: true; onClicked: card.openFolder(fCache.text || card.cacheDir) }
+                                }
+                            }
+
+                            Row {
+                                spacing: 8
+                                Text { text: "Exporter"; color: "#aaa"; font.pixelSize: 11; width: 120; anchors.verticalCenter: parent.verticalCenter }
+                                TextField { id: fExp; width: 520; height: 26; color: "white"; font.pixelSize: 11; placeholderText: card.exporterPath; background: Rectangle { color: "#252525"; radius: 6 } }
+                                Rectangle {
+                                    width: 60; height: 26; radius: 6; color: openE.containsMouse ? "#333" : "#252525"
+                                    Text { anchors.centerIn: parent; text: "Open"; color: "#ccc"; font.pixelSize: 11 }
+                                    MouseArea { id: openE; anchors.fill: parent; hoverEnabled: true; onClicked: card.openFolder(fExp.text || card.exporterPath) }
+                                }
+                            }
+
+                            Row {
+                                spacing: 8
+                                Text { text: "OpenCode database"; color: "#aaa"; font.pixelSize: 11; width: 130; anchors.verticalCenter: parent.verticalCenter }
+                                TextField { id: fDb; width: 520; height: 26; color: "white"; font.pixelSize: 11; placeholderText: card.dbPath; background: Rectangle { color: "#252525"; radius: 6 } }
+                                Rectangle {
+                                    width: 60; height: 26; radius: 6; color: openB.containsMouse ? "#333" : "#252525"
+                                    Text { anchors.centerIn: parent; text: "Open"; color: "#ccc"; font.pixelSize: 11 }
+                                    MouseArea { id: openB; anchors.fill: parent; hoverEnabled: true; onClicked: card.openFolder(fDb.text || card.dbPath) }
+                                }
+                            }
+                        }
+
+                        Row {
+                            spacing: 8
+
+                            Rectangle {
+                                width: 90; height: 28; radius: 6; color: saveSet.containsMouse ? "#3a6df0" : "#252525"
+                                Text { anchors.centerIn: parent; text: "Save"; color: "white"; font.pixelSize: 11 }
+                                MouseArea { id: saveSet; anchors.fill: parent; hoverEnabled: true; onClicked: card.saveSettingsFrom(fData.text, fCache.text, fExp.text, fDb.text) }
+                            }
+                            Rectangle {
+                                width: 130; height: 28; radius: 6; color: resetSet.containsMouse ? "#333" : "#252525"
+                                Text { anchors.centerIn: parent; text: "Reset to defaults"; color: "#ccc"; font.pixelSize: 11 }
+                                MouseArea {
+                                    id: resetSet; anchors.fill: parent; hoverEnabled: true
+                                    onClicked: {
+                                        fData.text = ""; fCache.text = ""; fExp.text = ""; fDb.text = ""
+                                        card.settingsDefaults()
+                                    }
+                                }
+                            }
+                            Rectangle {
+                                width: 90; height: 28; radius: 6; color: detSet.containsMouse ? "#333" : "#252525"
+                                Text { anchors.centerIn: parent; text: "Detect"; color: "#ccc"; font.pixelSize: 11 }
+                                MouseArea { id: detectBtn; objectName: "detectBtn"; anchors.fill: parent; hoverEnabled: true; onClicked: card.runDetect() }
+                            }
+                            Rectangle {
+                                width: 90; height: 28; radius: 6; color: repSet.containsMouse ? "#333" : "#252525"
+                                Text { anchors.centerIn: parent; text: "Repair"; color: "#ccc"; font.pixelSize: 11 }
+                                MouseArea { id: repairBtn; objectName: "repairBtn"; anchors.fill: parent; hoverEnabled: true; onClicked: card.runRepair() }
+                            }
+                        }
+
+                        Text {
+                            width: parent.width
+                            text: card.settingsLog
+                            color: "#8ab4f8"
+                            font.pixelSize: 11
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+
+                    Component.onCompleted: {
+                        fData.text = card.settingsDraftData
+                        fCache.text = card.settingsDraftCache
+                        fExp.text = card.settingsDraftExporter
+                        fDb.text = card.settingsDraftDb
+                    }
+                }
+            }
+
+            Component {
+                id: howToView
+
+                Item {
+                    anchors.fill: parent
+
+                    ScrollView {
+                        id: howScroll
+                        anchors.fill: parent
+
+                        Text {
+                            width: howScroll.availableWidth
+                            color: "#bbb"
+                            font.pixelSize: 12
+                            wrapMode: Text.WordWrap
+                            textFormat: Text.RichText
+                            text: "<b>Tabs</b><br/>" +
+                                "1 Main &middot; 2 System Prompt &middot; 3 Skills &middot; 4 Directives &middot; 5 Library &middot; 6 Stats &middot; 7 Data &middot; 8 Settings &middot; 9 How-To<br/><br/>" +
+                                "<b>Keyboard</b><br/>" +
+                                "Ctrl+1..9 &mdash; jump to a tab<br/>" +
+                                "Alt+1 &mdash; Sessions &nbsp; Alt+2 &mdash; Answers<br/>" +
+                                "Ctrl+F search &middot; Ctrl+W clear draft &middot; Ctrl+S save prompt &middot; Ctrl+E editor<br/>" +
+                                "Ctrl+Return send &middot; Ctrl+Shift+Left/Right move answer &middot; Esc close<br/><br/>" +
+                                "<b>System Prompt</b><br/>" +
+                                "Edits the instruction files OpenCode merges. The global file is ~/.config/opencode/AGENTS.md.<br/><br/>" +
+                                "<b>Settings</b><br/>" +
+                                "Choose where user data and cache live, point at the exporter and OpenCode database, then Save. " +
+                                "Detect checks every path; Repair creates folders, seeds stores and reinstalls the export timer."
                         }
                     }
                 }

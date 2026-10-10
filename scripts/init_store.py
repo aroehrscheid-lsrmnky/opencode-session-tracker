@@ -13,14 +13,18 @@ This script is idempotent and safe to run on every panel launch:
 """
 import os
 import shutil
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _paths
 
 HOME = os.path.expanduser("~")
 PLUGIN_DIR = os.path.join(
     HOME, ".config", "omarchy", "plugins",
     "io.github.aroehrscheid-lsrmnky.opencode-sessions",
 )
-DATA_DIR = os.path.join(HOME, ".config", "opencode-sessions")
-CACHE_DIR = os.path.join(HOME, ".cache", "opencode-sessions")
+DATA_DIR = _paths.data_dir()
+CACHE_DIR = _paths.cache_dir()
 
 # name -> ordered list of legacy sources to fall back on
 MIGRATE = {

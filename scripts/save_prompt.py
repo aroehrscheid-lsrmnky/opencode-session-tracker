@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import json, sys, os, re
 from datetime import datetime
-path = os.path.expanduser("~/.config/opencode-sessions/prompts.json")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _paths
+path = os.path.join(_paths.data_dir(), "prompts.json")
 text = sys.argv[1] if len(sys.argv)>1 else ""
 if not text.strip():
     sys.exit(0)

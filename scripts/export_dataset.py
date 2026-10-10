@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-import os, json
+import os, json, sys
 
-HOME = os.path.expanduser("~")
-DATA = os.path.join(HOME, ".config", "opencode-sessions")
-BASE = os.path.join(HOME, ".cache", "opencode-sessions")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _paths
+
+DATA = _paths.data_dir()
+BASE = _paths.cache_dir()
 SRC = os.path.join(DATA, "training.jsonl")
 SHARE = os.path.join(BASE, "dataset_sharegpt.json")
 ALPACA = os.path.join(BASE, "dataset_alpaca.json")
