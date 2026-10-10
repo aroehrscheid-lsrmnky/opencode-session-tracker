@@ -98,6 +98,8 @@ Item {
             property string directiveNewBody: ""
             property string directiveSearchText: ""
             property string directiveTagFilter: ""
+            property string skillNewName: ""
+            property string skillNewDesc: ""
             property var skills: []
             property var skillStyles: ({})
             property string skillSearchText: ""
@@ -371,14 +373,6 @@ Item {
                 setStatus("Directive deleted")
             }
 
-            function saveDirectiveText() {
-                if (selectedDirectiveId === "") {
-                    setStatus("No directive selected")
-                    return
-                }
-                updateDirectiveItem(selectedDirectiveId, selectedDirectiveTitle(), directiveText)
-            }
-
             function addDirective() {
                 if (directiveNewTitle.trim() === "" && directiveNewBody.trim() === "") {
                     setStatus("Nothing to add")
@@ -386,6 +380,21 @@ Item {
                 }
                 if (dirAddProc.running) return
                 dirAddProc.running = true
+            }
+
+            function addSkill() {
+                var n = skillNewName.trim()
+                var d = skillNewDesc.trim()
+                if (n === "" && d === "") {
+                    setStatus("Nothing to add")
+                    return
+                }
+                if (n === "") {
+                    setStatus("A skill needs a name")
+                    return
+                }
+                if (skillAddProc.running) return
+                skillAddProc.running = true
             }
 
             function sessionEntries(idx) {
@@ -921,6 +930,26 @@ Item {
                     } else {
                         card.setStatus("Add failed (exit " + exitCode + ")")
                     }
+                }
+            }
+
+            Process {
+                id: skillAddProc
+                property string buf: ""
+                command: ["python3", card.pluginDir + "/scripts/add_skill.py", card.skillNewName, card.skillNewDesc]
+                stdout: SplitParser { onRead: function (line) { skillAddProc.buf += line + "\n" } }
+                stderr: SplitParser { onRead: function (line) { skillAddProc.buf += line + "\n" } }
+                onExited: (exitCode, exitStatus) => {
+                    var note = String(skillAddProc.buf || "").trim().split("\n").pop()
+                    if (exitCode === 0) {
+                        card.skillNewName = ""
+                        card.skillNewDesc = ""
+                        card.setStatus("Skill added")
+                    } else {
+                        card.setStatus(note ? String(note).replace(/^ERROR:\s*/, "") : "Add failed (exit " + exitCode + ")")
+                    }
+                    skillAddProc.buf = ""
+                    skillsView.reload()
                 }
             }
 
@@ -2055,33 +2084,6 @@ Item {
                                         }
                                     }
 
-                                    Rectangle {
-                                        anchors.right: parent.right
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        height: 20
-                                        radius: 4
-                                        color: card.selectedDirectiveId === "" ? "#2a2a2a" : "#3a6df0"
-                                        opacity: card.selectedDirectiveId === "" ? 0.5 : 1
-                                        width: dirSaveLabel.implicitWidth + 12
-                                        Text {
-                                            id: dirSaveLabel
-                                            anchors.centerIn: parent
-                                            text: "Save"
-                                            color: "#fff"
-                                            font.pixelSize: 10
-                                        }
-                                        MouseArea {
-                                            anchors.fill: parent
-                                            enabled: card.selectedDirectiveId !== ""
-                                            onClicked: card.saveDirectiveText()
-                                        }
-                                    }
-                                }
-
-                                Item {
-                                    width: parent.width
-                                    height: 22
-
                                     TextField {
                                         id: composeDirectiveSearchField
                                         anchors.right: parent.right
@@ -2883,7 +2885,7 @@ Item {
                         anchors.topMargin: 8
                         anchors.left: parent.left
                         anchors.right: parent.right
-                        anchors.bottom: parent.bottom
+                        anchors.bottom: skillComposer.top
                         clip: true
                         contentWidth: availableWidth
 
@@ -3040,6 +3042,74 @@ Item {
                                 text: "No skills match \"" + card.skillSearchText + "\""
                                 color: "#666"
                                 font.pixelSize: 11
+                            }
+                        }
+                    }
+
+                    // Add-a-skill row, mirroring the Library and Directives composers.
+                    Rectangle {
+                        id: skillComposer
+                        anchors.left: parent.left
+                        anchors.leftMargin: 10
+                        anchors.right: parent.right
+                        anchors.rightMargin: 10
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 6
+                        height: 34
+                        radius: 6
+                        color: "#252525"
+
+                        TextField {
+                            id: skillNameField
+                            anchors.left: parent.left
+                            anchors.leftMargin: 6
+                            width: 200
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: 24
+                            placeholderText: "New skill name…"
+                            text: card.skillNewName
+                            onTextChanged: card.skillNewName = text
+                            onAccepted: card.addSkill()
+                            background: Rectangle { color: "#1a1a1a"; radius: 6 }
+                            color: "white"
+                            font.pixelSize: 12
+                        }
+
+                        TextField {
+                            id: skillDescField
+                            anchors.left: skillNameField.right
+                            anchors.leftMargin: 6
+                            anchors.right: skillAddBtn.left
+                            anchors.rightMargin: 6
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: 24
+                            placeholderText: "What it does (Enter to add)"
+                            text: card.skillNewDesc
+                            onTextChanged: card.skillNewDesc = text
+                            onAccepted: card.addSkill()
+                            background: Rectangle { color: "#1a1a1a"; radius: 6 }
+                            color: "white"
+                            font.pixelSize: 12
+                        }
+
+                        FlatButton {
+                            id: skillAddBtn
+                            text: "Add"
+                            anchors.right: parent.right
+                            anchors.rightMargin: 6
+                            anchors.verticalCenter: parent.verticalCenter
+                            onClicked: card.addSkill()
+                        }
+
+                        Connections {
+                            target: card
+                            function onSkillNewNameChanged() {
+                                if (skillNameField.text !== card.skillNewName)
+                                    skillNameField.text = card.skillNewName
+                            }
+                            function onSkillNewDescChanged() {
+                                if (skillDescField.text !== card.skillNewDesc)
+                                    skillDescField.text = card.skillNewDesc
                             }
                         }
                     }
@@ -3247,7 +3317,7 @@ Item {
             Component {
                 id: settingsView
 
-Item {
+                Item {
                     anchors.fill: parent
 
                     ScrollView {
@@ -3257,20 +3327,35 @@ Item {
                         contentWidth: availableWidth
 
                         Column {
-                            width: Math.min(880, settingsScroll.availableWidth)
+                            id: settingsCol
+                            width: Math.min(940, settingsScroll.availableWidth)
                             anchors.horizontalCenter: parent.horizontalCenter
-                            spacing: 14
+                            spacing: 16
 
-                            Text {
-                                text: "Settings"
-                                color: "#ccc"
-                                font.pixelSize: 14
-                                font.weight: Font.DemiBold
+                            // ---------- Title ----------
+                            Column {
+                                width: parent.width
+                                spacing: 2
+
+                                Text {
+                                    text: "Settings"
+                                    color: "#ccc"
+                                    font.pixelSize: 14
+                                    font.weight: Font.DemiBold
+                                }
+                                Text {
+                                    width: parent.width
+                                    text: "Where the panel stores things. Leave a field empty to use its default."
+                                    color: "#777"
+                                    font.pixelSize: 11
+                                    wrapMode: Text.WordWrap
+                                }
                             }
 
+                            // ---------- Status ----------
                             Rectangle {
                                 width: parent.width
-                                height: checksCol.height + 32
+                                height: checksCol.implicitHeight + 32
                                 color: "#202020"
                                 radius: 10
                                 border.width: 1
@@ -3280,11 +3365,11 @@ Item {
                                     id: checksCol
                                     anchors.left: parent.left
                                     anchors.leftMargin: 16
-                                    anchors.top: parent.top
-                                    anchors.topMargin: 16
                                     anchors.right: parent.right
                                     anchors.rightMargin: 16
-                                    spacing: 5
+                                    anchors.top: parent.top
+                                    anchors.topMargin: 16
+                                    spacing: 6
 
                                     Text {
                                         text: "Status"
@@ -3296,99 +3381,187 @@ Item {
                                     Repeater {
                                         model: card.settingsChecks
                                         delegate: Row {
+                                            width: checksCol.width
                                             spacing: 8
-                                            Text { text: modelData.ok ? "✓" : "✗"; color: modelData.ok ? "#6fcf97" : "#e06c6c"; font.pixelSize: 11; width: 14 }
-                                            Text { text: modelData.label; color: "#ccc"; font.pixelSize: 11; width: 150 }
-                                            Text { text: modelData.path; color: "#888"; font.pixelSize: 10; width: 400; elide: Text.ElideMiddle }
-                                            Text { text: modelData.ok ? "" : modelData.hint; color: "#c98"; font.pixelSize: 10 }
+
+                                            Text {
+                                                width: 14
+                                                text: modelData.ok ? "\u2713" : "\u2717"
+                                                color: modelData.ok ? "#6fcf97" : "#e06c6c"
+                                                font.pixelSize: 11
+                                            }
+                                            Text {
+                                                width: 140
+                                                text: modelData.label
+                                                color: "#ccc"
+                                                font.pixelSize: 11
+                                                elide: Text.ElideRight
+                                            }
+                                            Text {
+                                                width: Math.max(120, checksCol.width - 14 - 8 - 140 - 8 - (modelData.ok ? 0 : 200))
+                                                text: modelData.path
+                                                color: "#888"
+                                                font.pixelSize: 10
+                                                elide: Text.ElideMiddle
+                                            }
+                                            Text {
+                                                width: 200
+                                                visible: !modelData.ok
+                                                text: modelData.ok ? "" : modelData.hint
+                                                color: "#c98"
+                                                font.pixelSize: 10
+                                                elide: Text.ElideRight
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
 
-                        Column {
-                            spacing: 8
-                            width: parent.width
+                            // ---------- Paths ----------
+                            Column {
+                                width: parent.width
+                                spacing: 8
 
-                            Text { text: "Paths"; color: "#aaa"; font.pixelSize: 11; font.weight: Font.DemiBold }
+                                Text {
+                                    text: "Paths"
+                                    color: "#aaa"
+                                    font.pixelSize: 11
+                                    font.weight: Font.DemiBold
+                                }
+
+                                // data
+                                Row {
+                                    width: settingsCol.width
+                                    spacing: 10
+
+                                    Text { width: 150; text: "Data folder"; color: "#aaa"; font.pixelSize: 11; anchors.verticalCenter: parent.verticalCenter }
+                                    TextField {
+                                        id: fData
+                                        width: Math.max(200, settingsCol.width - 150 - 10 - 80)
+                                        height: 26
+                                        color: "white"
+                                        font.pixelSize: 11
+                                        placeholderText: card.dataDir
+                                        background: Rectangle { color: "#1a1a1a"; radius: 6 }
+                                        onTextChanged: card.settingsDraftData = text
+                                    }
+                                    FlatButton {
+                                        text: "Open"
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        onClicked: card.openFolder(fData.text || card.dataDir)
+                                    }
+                                }
+
+                                // cache
+                                Row {
+                                    width: settingsCol.width
+                                    spacing: 10
+
+                                    Text { width: 150; text: "Cache folder"; color: "#aaa"; font.pixelSize: 11; anchors.verticalCenter: parent.verticalCenter }
+                                    TextField {
+                                        id: fCache
+                                        width: Math.max(200, settingsCol.width - 150 - 10 - 80)
+                                        height: 26
+                                        color: "white"
+                                        font.pixelSize: 11
+                                        placeholderText: card.cacheDir
+                                        background: Rectangle { color: "#1a1a1a"; radius: 6 }
+                                        onTextChanged: card.settingsDraftCache = text
+                                    }
+                                    FlatButton {
+                                        text: "Open"
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        onClicked: card.openFolder(fCache.text || card.cacheDir)
+                                    }
+                                }
+
+                                // exporter / database
+                                Row {
+                                    width: settingsCol.width
+                                    spacing: 10
+
+                                    Text { width: 150; text: "Exporter"; color: "#aaa"; font.pixelSize: 11; anchors.verticalCenter: parent.verticalCenter }
+                                    TextField {
+                                        id: fExp
+                                        width: Math.max(200, settingsCol.width - 150 - 10 - 80)
+                                        height: 26
+                                        color: "white"
+                                        font.pixelSize: 11
+                                        placeholderText: card.exporterPath
+                                        background: Rectangle { color: "#1a1a1a"; radius: 6 }
+                                        onTextChanged: card.settingsDraftExporter = text
+                                    }
+                                    FlatButton {
+                                        text: "Open"
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        onClicked: card.openFolder(fExp.text || card.exporterPath)
+                                    }
+                                }
+
+                                Row {
+                                    width: settingsCol.width
+                                    spacing: 10
+
+                                    Text { width: 150; text: "OpenCode database"; color: "#aaa"; font.pixelSize: 11; anchors.verticalCenter: parent.verticalCenter }
+                                    TextField {
+                                        id: fDb
+                                        width: Math.max(200, settingsCol.width - 150 - 10 - 80)
+                                        height: 26
+                                        color: "white"
+                                        font.pixelSize: 11
+                                        placeholderText: card.dbPath
+                                        background: Rectangle { color: "#1a1a1a"; radius: 6 }
+                                        onTextChanged: card.settingsDraftDb = text
+                                    }
+                                    FlatButton {
+                                        text: "Open"
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        onClicked: card.openFolder(fDb.text || card.dbPath)
+                                    }
+                                }
+                            }
+
+                            // ---------- Actions ----------
+                            Rectangle {
+                                width: parent.width
+                                height: actionRow.implicitHeight + 20
+                                color: "#202020"
+                                radius: 10
+                                border.width: 1
+                                border.color: "#2e2e2e"
+
+                                Row {
+                                    id: actionRow
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 16
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 16
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 8
+
+                                    FlatButton {
+                                        text: "Save"
+                                        onClicked: card.saveSettingsFrom(fData.text, fCache.text, fExp.text, fDb.text)
+                                    }
+                                    FlatButton {
+                                        text: "Reset to defaults"
+                                        onClicked: {
+                                            fData.text = ""; fCache.text = ""; fExp.text = ""; fDb.text = ""
+                                            card.settingsDefaults()
+                                        }
+                                    }
+                                    FlatButton { text: "Detect"; onClicked: card.runDetect() }
+                                    FlatButton { text: "Repair"; onClicked: card.runRepair() }
+                                }
+                            }
+
                             Text {
                                 width: parent.width
-                                text: "Leave a field empty to use its default. Changing a folder moves the existing files across."
-                                color: "#777"; font.pixelSize: 10; wrapMode: Text.WordWrap
+                                text: card.settingsLog
+                                color: "#8ab4f8"
+                                font.pixelSize: 11
+                                wrapMode: Text.WordWrap
                             }
-
-                            Row {
-                                spacing: 8
-                                Text { text: "Data folder"; color: "#aaa"; font.pixelSize: 11; width: 130; anchors.verticalCenter: parent.verticalCenter }
-                                TextField { id: fData; width: 520; height: 26; color: "white"; font.pixelSize: 11; placeholderText: card.dataDir; background: Rectangle { color: "#252525"; radius: 6 } }
-                                FlatButton {
-                                    text: "Open"
-                                    onClicked: card.openFolder(fData.text || card.dataDir)
-                                }
-                            }
-
-                            Row {
-                                spacing: 8
-                                Text { text: "Cache folder"; color: "#aaa"; font.pixelSize: 11; width: 120; anchors.verticalCenter: parent.verticalCenter }
-                                TextField { id: fCache; width: 520; height: 26; color: "white"; font.pixelSize: 11; placeholderText: card.cacheDir; background: Rectangle { color: "#252525"; radius: 6 } }
-                                FlatButton {
-                                    text: "Open"
-                                    onClicked: card.openFolder(fCache.text || card.cacheDir)
-                                }
-                            }
-
-                            Row {
-                                spacing: 8
-                                Text { text: "Exporter"; color: "#aaa"; font.pixelSize: 11; width: 120; anchors.verticalCenter: parent.verticalCenter }
-                                TextField { id: fExp; width: 520; height: 26; color: "white"; font.pixelSize: 11; placeholderText: card.exporterPath; background: Rectangle { color: "#252525"; radius: 6 } }
-                                FlatButton {
-                                    text: "Open"
-                                    onClicked: card.openFolder(fExp.text || card.exporterPath)
-                                }
-                            }
-
-                            Row {
-                                spacing: 8
-                                Text { text: "OpenCode database"; color: "#aaa"; font.pixelSize: 11; width: 130; anchors.verticalCenter: parent.verticalCenter }
-                                TextField { id: fDb; width: 520; height: 26; color: "white"; font.pixelSize: 11; placeholderText: card.dbPath; background: Rectangle { color: "#252525"; radius: 6 } }
-                                FlatButton {
-                                    text: "Open"
-                                    onClicked: card.openFolder(fDb.text || card.dbPath)
-                                }
-                            }
-                        }
-
-                        Row {
-                            spacing: 8
-
-                            FlatButton {
-                                text: "Save"
-                                onClicked: card.saveSettingsFrom(fData.text, fCache.text, fExp.text, fDb.text)
-                            }
-                            FlatButton {
-                                text: "Reset to defaults"
-                                onClicked: {
-                                    fData.text = ""; fCache.text = ""; fExp.text = ""; fDb.text = ""
-                                    card.settingsDefaults()
-                                }
-                            }
-                            FlatButton {
-                                text: "Detect"
-                                onClicked: card.runDetect()
-                            }
-                            FlatButton {
-                                text: "Repair"
-                                onClicked: card.runRepair()
-                            }
-                        }
-
-                        Text {
-                            width: parent.width
-                            text: card.settingsLog
-                            color: "#8ab4f8"
-                            font.pixelSize: 11
-                            wrapMode: Text.WordWrap
                         }
                     }
 
